@@ -75,25 +75,25 @@ describe('BetterDDB - Integration Tests', () => {
       email: 'john@example.com'
     };
 
-    const createdUser = await userDal.create(user as any);
+    const createdUser = await userDal.create(user as any).execute();
     expect(createdUser).toHaveProperty('createdAt');
     expect(createdUser).toHaveProperty('updatedAt');
   });
 
   it('should retrieve an item by ID', async () => {
-    const user = await userDal.get({ id: 'user-123' });
+    const user = await userDal.get({ id: 'user-123' }).execute();
     expect(user).not.toBeNull();
     expect(user?.id).toBe('user-123');
   });
 
   it('should update an existing item', async () => {
-    const updatedUser = await userDal.update({ id: 'user-123' }).set({ name: 'Jane Doe' });
+    const updatedUser = await userDal.update({ id: 'user-123' }).set({ name: 'Jane Doe' }).execute();
     expect(updatedUser.name).toBe('Jane Doe');
   });
 
   it('should delete an item', async () => {
-    await userDal.delete({ id: 'user-123' });
-    const deletedUser = await userDal.get({ id: 'user-123' });
+    await userDal.delete({ id: 'user-123' }).execute();
+    const deletedUser = await userDal.get({ id: 'user-123' }).execute();
     expect(deletedUser).toBeNull();
   });
 });

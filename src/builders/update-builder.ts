@@ -1,6 +1,6 @@
-// src/update-builder.ts
+
 import { DynamoDB } from 'aws-sdk';
-import { BetterDDB } from './betterddb';
+import { BetterDDB } from '../betterddb';
 
 interface UpdateActions<T> {
   set?: Partial<T>;
@@ -13,7 +13,9 @@ export class UpdateBuilder<T> {
   private actions: UpdateActions<T> = {};
   private condition?: { expression: string; attributeValues: Record<string, any> };
   private expectedVersion?: number;
-  
+  // When using transaction mode, we store extra transaction items.
+  private extraTransactItems?: DynamoDB.DocumentClient.TransactWriteItemList;
+
   // Reference to the parent BetterDDB instance and key.
   constructor(private parent: BetterDDB<T>, private key: Partial<T>, expectedVersion?: number) {
     this.expectedVersion = expectedVersion;
@@ -40,16 +42,36 @@ export class UpdateBuilder<T> {
     return this;
   }
 
+  /**
+   * Adds a condition expression to the update.
+   */
   public setCondition(expression: string, attributeValues: Record<string, any>): this {
-    this.condition = { expression, attributeValues };
+    if (this.condition) {
+      // Merge conditions with AND.
+      this.condition.expression += ` AND ${expression}`;
+      Object.assign(this.condition.attributeValues, attributeValues);
+    } else {
+      this.condition = { expression, attributeValues };
+    }
     return this;
   }
 
   /**
-   * Commits the update. This method builds the full update expression,
-   * calls the parent's update method, and returns a Promise.
+   * Specifies additional transaction items to include when executing this update as a transaction.
    */
-  private async commit(): Promise<T> {
+  public transactWrite(ops: DynamoDB.DocumentClient.TransactWriteItemList): this {
+    this.extraTransactItems = ops;
+    return this;
+  }
+
+  /**
+   * Builds the update expression and associated maps.
+   */
+  private buildExpression(): {
+    updateExpression: string;
+    attributeNames: Record<string, string>;
+    attributeValues: Record<string, any>;
+  } {
     const ExpressionAttributeNames: Record<string, string> = {};
     const ExpressionAttributeValues: Record<string, any> = {};
     const clauses: string[] = [];
@@ -114,6 +136,7 @@ export class UpdateBuilder<T> {
       ExpressionAttributeNames['#version'] = 'version';
       ExpressionAttributeValues[':expectedVersion'] = this.expectedVersion;
       ExpressionAttributeValues[':newVersion'] = this.expectedVersion + 1;
+
       // Append version update in SET clause.
       const versionClause = '#version = :newVersion';
       const setIndex = clauses.findIndex(clause => clause.startsWith('SET '));
@@ -122,56 +145,82 @@ export class UpdateBuilder<T> {
       } else {
         clauses.push(`SET ${versionClause}`);
       }
-      // Append condition expression.
-      if (this.condition) {
+
+      // Ensure condition expression includes version check.
+      if (this.condition && this.condition.expression) {
         this.condition.expression += ` AND #version = :expectedVersion`;
       } else {
         this.condition = { expression: '#version = :expectedVersion', attributeValues: {} };
       }
     }
 
-    // Combine clauses into a final update expression.
-    const UpdateExpression = clauses.join(' ');
-
     // Merge any provided condition attribute values.
     if (this.condition) {
       Object.assign(ExpressionAttributeValues, this.condition.attributeValues);
     }
 
-    const params: DynamoDB.DocumentClient.UpdateItemInput = {
-      TableName: this.parent.getTableName(),
-      Key: this.parent.buildKeyPublic(this.key),
-      UpdateExpression,
-      ExpressionAttributeNames,
-      ExpressionAttributeValues,
-      ReturnValues: 'ALL_NEW'
+    return {
+      updateExpression: clauses.join(' '),
+      attributeNames: ExpressionAttributeNames,
+      attributeValues: ExpressionAttributeValues
     };
+  }
 
+  /**
+   * Returns a transaction update item that can be included in a transactWrite call.
+   */
+  public toTransactUpdate(): DynamoDB.DocumentClient.TransactWriteItem {
+    const { updateExpression, attributeNames, attributeValues } = this.buildExpression();
+    const updateItem: DynamoDB.DocumentClient.Update = {
+      TableName: this.parent.getTableName(),
+      Key: this.parent.buildKey(this.key),
+      UpdateExpression: updateExpression,
+      ExpressionAttributeNames: attributeNames,
+      ExpressionAttributeValues: attributeValues
+    };
     if (this.condition && this.condition.expression) {
-      params.ConditionExpression = this.condition.expression;
+      updateItem.ConditionExpression = this.condition.expression;
     }
+    return { Update: updateItem };
+  }
 
-    return this.parent.getClient().update(params).promise().then(result => {
+  /**
+   * Commits the update immediately by calling the parent's update method.
+   */
+  public async execute(): Promise<T> {
+    if (this.extraTransactItems) {
+      // Build our update transaction item.
+      const myTransactItem = this.toTransactUpdate();
+      // Combine with extra transaction items.
+      const allItems = [...this.extraTransactItems, myTransactItem];
+      await this.parent.getClient().transactWrite({
+        TransactItems: allItems
+      }).promise();
+      // After transaction, retrieve the updated item.
+      const result = await this.parent.get(this.key).execute();
+      if (result === null) {
+        throw new Error('Item not found after transaction update');
+      }
+      return result;
+    } else {
+      // Normal update flow.
+      const { updateExpression, attributeNames, attributeValues } = this.buildExpression();
+      const params: DynamoDB.DocumentClient.UpdateItemInput = {
+        TableName: this.parent.getTableName(),
+        Key: this.parent.buildKey(this.key),
+        UpdateExpression: updateExpression,
+        ExpressionAttributeNames: attributeNames,
+        ExpressionAttributeValues: attributeValues,
+        ReturnValues: 'ALL_NEW'
+      };
+      if (this.condition && this.condition.expression) {
+        params.ConditionExpression = this.condition.expression;
+      }
+      const result = await this.parent.getClient().update(params).promise();
       if (!result.Attributes) {
         throw new Error('No attributes returned after update');
       }
       return this.parent.getSchema().parse(result.Attributes);
-    });
-  }
-
-  // Make the builder thenable so that it can be awaited directly.
-  public then<TResult1 = T, TResult2 = never>(
-    onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
-  ): Promise<TResult1 | TResult2> {
-    return this.commit().then(onfulfilled, onrejected);
-  }
-  public catch<TResult = never>(
-    onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null
-  ): Promise<T | TResult> {
-    return this.commit().catch(onrejected);
-  }
-  public finally(onfinally?: (() => void) | null): Promise<T> {
-    return this.commit().finally(onfinally);
+    }
   }
 }

@@ -1,6 +1,5 @@
-// src/scan-builder.ts
 import { DynamoDB } from 'aws-sdk';
-import { BetterDDB } from './betterddb';
+import { BetterDDB } from '../betterddb';
 
 export class ScanBuilder<T> {
   private filters: string[] = [];
@@ -11,29 +10,35 @@ export class ScanBuilder<T> {
 
   constructor(private parent: BetterDDB<T>) {}
 
-  public where(attribute: keyof T, operator: 'eq' | 'begins_with' | 'between', values: any | [any, any]): this {
-    const nameKey = `#attr_${String(attribute)}`;
-    this.expressionAttributeNames[nameKey] = attribute as string;
+  public where(
+    attribute: keyof T,
+    operator: 'eq' | 'begins_with' | 'between',
+    values: any | [any, any]
+  ): this {
+    const attrStr = String(attribute);
+    const nameKey = `#attr_${attrStr}`;
+    this.expressionAttributeNames[nameKey] = attrStr;
 
     if (operator === 'eq') {
-      const valueKey = `:val_${String(attribute)}`;
+      const valueKey = `:val_${attrStr}`;
       this.expressionAttributeValues[valueKey] = values;
       this.filters.push(`${nameKey} = ${valueKey}`);
     } else if (operator === 'begins_with') {
-      const valueKey = `:val_${String(attribute)}`;
+      const valueKey = `:val_${attrStr}`;
       this.expressionAttributeValues[valueKey] = values;
       this.filters.push(`begins_with(${nameKey}, ${valueKey})`);
-    } else if (operator === 'between' && Array.isArray(values) && values.length === 2) {
-      const [start, end] = values;
-      const valueKeyStart = `:val_start_${String(attribute)}`;
-      const valueKeyEnd = `:val_end_${String(attribute)}`;
-      this.expressionAttributeValues[valueKeyStart] = start;
-      this.expressionAttributeValues[valueKeyEnd] = end;
+    } else if (operator === 'between') {
+      if (!Array.isArray(values) || values.length !== 2) {
+        throw new Error(`For 'between' operator, values must be a tuple of two items`);
+      }
+      const valueKeyStart = `:val_start_${attrStr}`;
+      const valueKeyEnd = `:val_end_${attrStr}`;
+      this.expressionAttributeValues[valueKeyStart] = values[0];
+      this.expressionAttributeValues[valueKeyEnd] = values[1];
       this.filters.push(`${nameKey} BETWEEN ${valueKeyStart} AND ${valueKeyEnd}`);
     } else {
       throw new Error(`Unsupported operator: ${operator}`);
     }
-
     return this;
   }
 
@@ -47,7 +52,10 @@ export class ScanBuilder<T> {
     return this;
   }
 
-  private async execute(): Promise<T[]> {
+  /**
+   * Executes the scan and returns a Promise that resolves with an array of items.
+   */
+  public async execute(): Promise<T[]> {
     const params: DynamoDB.DocumentClient.ScanInput = {
       TableName: this.parent.getTableName(),
       ExpressionAttributeNames: this.expressionAttributeNames,
@@ -64,10 +72,19 @@ export class ScanBuilder<T> {
     return (result.Items || []).map(item => this.parent.getSchema().parse(item));
   }
 
+  // Thenable implementation.
   public then<TResult1 = T[], TResult2 = never>(
     onfulfilled?: ((value: T[]) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
+  }
+  public catch<TResult = never>(
+    onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null
+  ): Promise<T[] | TResult> {
+    return this.execute().catch(onrejected);
+  }
+  public finally(onfinally?: (() => void) | null): Promise<T[]> {
+    return this.execute().finally(onfinally);
   }
 }
