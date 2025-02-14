@@ -12,62 +12,86 @@ npm install betterddb
 Below is an example of using betterddb for a User entity with a compound key.
 
 ```ts
-import { DynamoDAL } from 'betterddb';
+import { BetterDDB } from 'betterddb';
 import { z } from 'zod';
+import { DynamoDB } from 'aws-sdk';
 
-// Define a User schema with raw key parts and computed keys.
+// Define the User schema. Use .passthrough() if you want to allow extra keys (e.g. computed keys).
 const UserSchema = z.object({
   tenantId: z.string(),
   userId: z.string(),
   email: z.string().email(),
   name: z.string(),
-  // Computed fields:
+  // Computed keys and metadata:
   pk: z.string(),
   sk: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
   version: z.number().optional()
+}).passthrough();
+
+// Configure the DynamoDB DocumentClient (for example, using LocalStack)
+const client = new DynamoDB.DocumentClient({
+  region: 'us-east-1',
+  endpoint: 'http://localhost:4566'
 });
 
-export type User = z.infer<typeof UserSchema>;
-
-// Create an instance of the DAL with compound key definitions.
-const userDal = new DynamoDAL<User>({
+// Initialize BetterDDB with compound key definitions.
+const userDdb = new BetterDDB({
   schema: UserSchema,
   tableName: 'Users',
   keys: {
-    pk: {
-      field: 'pk',
-      build: (raw) => `TENANT#${raw.tenantId}`
+    primary: {
+      name: 'pk',
+      // Compute the partition key from tenantId
+      definition: { build: (raw) => `TENANT#${raw.tenantId}` }
     },
-    sk: {
-      field: 'sk',
-      build: (raw) => `USER#${raw.userId}`
+    sort: {
+      name: 'sk',
+      // Compute the sort key from userId
+      definition: { build: (raw) => `USER#${raw.userId}` }
     },
     gsis: {
-      EmailIndex: { pk: 'email' }
+      // Example: a Global Secondary Index on email.
+      EmailIndex: {
+        primary: {
+          name: 'email',
+          definition: 'email'
+        }
+      }
     }
   },
+  client,
   autoTimestamps: true
 });
 
-// Query by primary key with a sort key condition.
+// Use the BetterDDB instance to create and query items.
 (async () => {
-  const { items, lastKey } = await userDal.queryByPrimaryKey(
+  // Create a new user.
+  const newUser = await userDdb.create({
+    tenantId: 'tenant1',
+    userId: 'user123',
+    email: 'user@example.com',
+    name: 'Alice'
+  });
+  console.log('Created User:', newUser);
+
+  // Query by primary key with an optional sort key condition.
+  const { items, lastKey } = await userDdb.queryByPrimaryKey(
     { tenantId: 'tenant1' },
     { operator: 'begins_with', values: 'USER#user' },
     { limit: 10 }
   );
-  console.log("Queried items:", items);
+  console.log('Queried Items:', items);
   if (lastKey) {
-    console.log("More items exist; use lastKey for pagination:", lastKey);
+    console.log('More items available. Use lastKey for pagination:', lastKey);
   }
 })();
 ```
 
-API
+###API
 betterddb exposes a generic class DynamoDAL<T> with methods for:
-
+```ts
 create(item: T): Promise<T>
 get(rawKey: Partial<T>): Promise<T | null>
 update(rawKey: Partial<T>, update: Partial<T>, options?: { expectedVersion?: number }): Promise<T>
@@ -83,8 +107,7 @@ buildTransactUpdate(rawKey: Partial<T>, update: Partial<T>, options?: { expected
 buildTransactDelete(rawKey: Partial<T>)
 transactWrite(...) and transactGetByKeys(...)
 For complete details, please refer to the API documentation.
+```
 
 License
 MIT
-
-yaml
