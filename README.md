@@ -63,6 +63,8 @@ const userDal = new DynamoDAL<User>({
     console.log("More items exist; use lastKey for pagination:", lastKey);
   }
 })();
+```
+
 API
 betterddb exposes a generic class DynamoDAL<T> with methods for:
 
@@ -86,4 +88,3 @@ License
 MIT
 
 yaml
-
