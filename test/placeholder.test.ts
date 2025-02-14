@@ -25,6 +25,7 @@ const userDal = new BetterDDB({
   keys: {
     primary: { name: 'pk', definition: 'id' }
   },
+  entityName: 'USER',
   client,
   autoTimestamps: true
 });
@@ -86,7 +87,7 @@ describe('BetterDDB - Integration Tests', () => {
   });
 
   it('should update an existing item', async () => {
-    const updatedUser = await userDal.update({ id: 'user-123' }, { name: 'Jane Doe' });
+    const updatedUser = await userDal.update({ id: 'user-123' }).set({ name: 'Jane Doe' });
     expect(updatedUser.name).toBe('Jane Doe');
   });
 

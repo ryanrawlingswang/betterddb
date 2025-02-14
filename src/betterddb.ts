@@ -1,6 +1,9 @@
 // src/dynamo-dal.ts
 import { z, ZodSchema } from 'zod';
 import { DynamoDB } from 'aws-sdk';
+import { QueryBuilder } from './query-builder';
+import { ScanBuilder } from './scan-builder';
+import { UpdateBuilder } from './update-builder';
 
 export type PrimaryKeyValue = string | number;
 
@@ -66,6 +69,7 @@ export interface KeysConfig<T> {
 export interface BetterDDBOptions<T> {
   schema: ZodSchema<T>;
   tableName: string;
+  entityName: string;
   keys: KeysConfig<T>;
   client: DynamoDB.DocumentClient;
   /**
@@ -84,6 +88,7 @@ export interface BetterDDBOptions<T> {
 export class BetterDDB<T> {
   protected schema: ZodSchema<T>;
   protected tableName: string;
+  protected entityName: string;
   protected client: DynamoDB.DocumentClient;
   protected keys: KeysConfig<T>;
   protected autoTimestamps: boolean;
@@ -91,9 +96,30 @@ export class BetterDDB<T> {
   constructor(options: BetterDDBOptions<T>) {
     this.schema = options.schema;
     this.tableName = options.tableName;
+    this.entityName = options.entityName.toUpperCase();
     this.keys = options.keys;
     this.client = options.client;
     this.autoTimestamps = options.autoTimestamps ?? false;
+  }
+
+  public getKeys(): KeysConfig<T> {
+    return this.keys;
+  }
+  
+  public getTableName(): string {
+    return this.tableName;
+  }
+  
+  public getClient(): DynamoDB.DocumentClient {
+    return this.client;
+  }
+  
+  public buildKeyPublic(rawKey: Partial<T>): Record<string, any> {
+    return this.buildKey(rawKey);
+  }
+  
+  public getSchema(): ZodSchema<T> {
+    return this.schema;
   }
 
   // Helper: Retrieve the key value from a KeyDefinition.
@@ -210,74 +236,8 @@ export class BetterDDB<T> {
     }
   }
   
-  async update(
-    rawKey: Partial<T>,
-    update: Partial<T>,
-    options?: { expectedVersion?: number }
-  ): Promise<T> {
-    const ExpressionAttributeNames: Record<string, string> = {};
-    const ExpressionAttributeValues: Record<string, any> = {};
-    const UpdateExpressionParts: string[] = [];
-    const ConditionExpressionParts: string[] = [];
-  
-    // Exclude key fields from update.
-    const keyFieldNames = [
-      this.keys.primary.name,
-      this.keys.sort ? this.keys.sort.name : undefined
-    ].filter(Boolean) as string[];
-  
-    for (const [attr, value] of Object.entries(update)) {
-      if (keyFieldNames.includes(attr)) continue;
-      const attributeKey = `#${attr}`;
-      const valueKey = `:${attr}`;
-      ExpressionAttributeNames[attributeKey] = attr;
-      ExpressionAttributeValues[valueKey] = value;
-      UpdateExpressionParts.push(`${attributeKey} = ${valueKey}`);
-    }
-  
-    if (this.autoTimestamps) {
-      const now = new Date().toISOString();
-      ExpressionAttributeNames['#updatedAt'] = 'updatedAt';
-      ExpressionAttributeValues[':updatedAt'] = now;
-      UpdateExpressionParts.push('#updatedAt = :updatedAt');
-    }
-  
-    if (options?.expectedVersion !== undefined) {
-      ExpressionAttributeNames['#version'] = 'version';
-      ExpressionAttributeValues[':expectedVersion'] = options.expectedVersion;
-      ExpressionAttributeValues[':newVersion'] = options.expectedVersion + 1;
-      UpdateExpressionParts.push('#version = :newVersion');
-      ConditionExpressionParts.push('#version = :expectedVersion');
-    }
-  
-    if (UpdateExpressionParts.length === 0) {
-      throw new Error('No attributes provided to update');
-    }
-  
-    const UpdateExpression = 'SET ' + UpdateExpressionParts.join(', ');
-    const params: DynamoDB.DocumentClient.UpdateItemInput = {
-      TableName: this.tableName,
-      Key: this.buildKey(rawKey),
-      UpdateExpression,
-      ExpressionAttributeNames,
-      ExpressionAttributeValues,
-      ReturnValues: 'ALL_NEW'
-    };
-  
-    if (ConditionExpressionParts.length > 0) {
-      params.ConditionExpression = ConditionExpressionParts.join(' AND ');
-    }
-  
-    try {
-      const result = await this.client.update(params).promise();
-      if (!result.Attributes) {
-        throw new Error('No attributes returned after update');
-      }
-      return this.schema.parse(result.Attributes);
-    } catch (error) {
-      console.error('Error during update operation:', error);
-      throw error;
-    }
+  public update(key: Partial<T>, expectedVersion?: number): UpdateBuilder<T> {
+    return new UpdateBuilder<T>(this, key, expectedVersion);
   }
   
   async delete(rawKey: Partial<T>): Promise<void> {
@@ -290,136 +250,13 @@ export class BetterDDB<T> {
     }
   }
   
-  async queryByGsi(
-    gsiName: string,
-    key: Partial<T>,
-    sortKeyCondition?: { operator: 'eq' | 'begins_with' | 'between'; values: any | [any, any] }
-  ): Promise<T[]> {
-    if (!this.keys.gsis || !this.keys.gsis[gsiName]) {
-      throw new Error(`GSI "${gsiName}" is not configured`);
-    }
-    const indexConfig = this.keys.gsis[gsiName];
-    const ExpressionAttributeNames: Record<string, string> = {
-      [`#${indexConfig.primary.name}`]: indexConfig.primary.name
-    };
-    const ExpressionAttributeValues: Record<string, any> = {
-      [`:${indexConfig.primary.name}`]:
-        (typeof indexConfig.primary.definition === 'string' ||
-         typeof indexConfig.primary.definition === 'number' ||
-         typeof indexConfig.primary.definition === 'symbol')
-          ? String((key as any)[indexConfig.primary.definition])
-          : indexConfig.primary.definition.build(key)
-    };
-    let KeyConditionExpression = `#${indexConfig.primary.name} = :${indexConfig.primary.name}`;
-  
-    if (indexConfig.sort && sortKeyCondition) {
-      const skFieldName = indexConfig.sort.name;
-      ExpressionAttributeNames['#gsiSk'] = skFieldName;
-      switch (sortKeyCondition.operator) {
-        case 'eq':
-          ExpressionAttributeValues[':gsiSk'] = sortKeyCondition.values;
-          KeyConditionExpression += ' AND #gsiSk = :gsiSk';
-          break;
-        case 'begins_with':
-          ExpressionAttributeValues[':gsiSk'] = sortKeyCondition.values;
-          KeyConditionExpression += ' AND begins_with(#gsiSk, :gsiSk)';
-          break;
-        case 'between':
-          if (!Array.isArray(sortKeyCondition.values) || sortKeyCondition.values.length !== 2) {
-            throw new Error("For 'between' operator, values must be a tuple of two items");
-          }
-          ExpressionAttributeValues[':gsiSkStart'] = sortKeyCondition.values[0];
-          ExpressionAttributeValues[':gsiSkEnd'] = sortKeyCondition.values[1];
-          KeyConditionExpression += ' AND #gsiSk BETWEEN :gsiSkStart AND :gsiSkEnd';
-          break;
-        default:
-          throw new Error(`Unsupported sort key operator: ${sortKeyCondition.operator}`);
-      }
-    }
-    try {
-      const result = await this.client
-        .query({
-          TableName: this.tableName,
-          IndexName: gsiName,
-          KeyConditionExpression,
-          ExpressionAttributeNames,
-          ExpressionAttributeValues
-        })
-        .promise();
-      return (result.Items || []).map(item => this.schema.parse(item));
-    } catch (error) {
-      console.error('Error during queryByGsi operation:', error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Query by primary key (using the computed primary key) and an optional sort key condition.
-   */
-  async queryByPrimaryKey(
-    rawKey: Partial<T>,
-    sortKeyCondition?: { operator: 'eq' | 'begins_with' | 'between'; values: any | [any, any] },
-    options?: { limit?: number; lastKey?: Record<string, any> }
-  ): Promise<{ items: T[]; lastKey?: Record<string, any> }> {
-    const pkAttrName = this.keys.primary.name;
-    const pkValue =
-      (typeof this.keys.primary.definition === 'string' ||
-       typeof this.keys.primary.definition === 'number' ||
-       typeof this.keys.primary.definition === 'symbol')
-        ? String((rawKey as any)[this.keys.primary.definition])
-        : this.keys.primary.definition.build(rawKey);
-  
-    const ExpressionAttributeNames: Record<string, string> = {
-      [`#${pkAttrName}`]: pkAttrName
-    };
-    const ExpressionAttributeValues: Record<string, any> = {
-      [`:${pkAttrName}`]: pkValue
-    };
-  
-    let KeyConditionExpression = `#${pkAttrName} = :${pkAttrName}`;
-  
-    if (this.keys.sort && sortKeyCondition) {
-      const skAttrName = this.keys.sort.name;
-      ExpressionAttributeNames[`#${skAttrName}`] = skAttrName;
-      switch (sortKeyCondition.operator) {
-        case 'eq':
-          ExpressionAttributeValues[':skValue'] = sortKeyCondition.values;
-          KeyConditionExpression += ` AND #${skAttrName} = :skValue`;
-          break;
-        case 'begins_with':
-          ExpressionAttributeValues[':skValue'] = sortKeyCondition.values;
-          KeyConditionExpression += ` AND begins_with(#${skAttrName}, :skValue)`;
-          break;
-        case 'between':
-          if (!Array.isArray(sortKeyCondition.values) || sortKeyCondition.values.length !== 2) {
-            throw new Error("For 'between' operator, values must be a tuple of two items");
-          }
-          ExpressionAttributeValues[':skStart'] = sortKeyCondition.values[0];
-          ExpressionAttributeValues[':skEnd'] = sortKeyCondition.values[1];
-          KeyConditionExpression += ` AND #${skAttrName} BETWEEN :skStart AND :skEnd`;
-          break;
-        default:
-          throw new Error(`Unsupported sort key operator: ${sortKeyCondition.operator}`);
-      }
-    }
-  
-    const queryParams: DynamoDB.DocumentClient.QueryInput = {
-      TableName: this.tableName,
-      KeyConditionExpression,
-      ExpressionAttributeNames,
-      ExpressionAttributeValues
-    };
-  
-    if (options?.limit) {
-      queryParams.Limit = options.limit;
-    }
-    if (options?.lastKey) {
-      queryParams.ExclusiveStartKey = options.lastKey;
-    }
-  
-    const result = await this.client.query(queryParams).promise();
-    const items = (result.Items || []).map(item => this.schema.parse(item));
-    return { items, lastKey: result.LastEvaluatedKey };
+  public query(key: Partial<T>): QueryBuilder<T> {
+  return new QueryBuilder<T>(this, key);
+}
+
+  // Add scan method
+  public scan(): ScanBuilder<T> {
+    return new ScanBuilder<T>(this);
   }
   
   // ───── Transaction Helpers ─────────────────────────────
