@@ -1,4 +1,4 @@
-# betterddb [IN DEVELOPMENT - NOT READY FOR PRODUCTION - BREAKING CHANGES]
+# betterddb [IN DEVELOPMENT - NOT READY FOR PRODUCTION - BREAKING CHANGES - PLEASE FOR THE LOVE OF GOD DO NOT USE]
 
 **betterddb** is a definition-based DynamoDB wrapper library written in TypeScript. It provides a generic, schema-driven Data Access Layer (DAL) using [Zod](https://github.com/colinhacks/zod) for runtime validation and the AWS SDK for DynamoDB operations. With built-in support for compound keys, computed indexes, automatic timestamp injection, transactional and batch operations, and a fluent builder API for all CRUD operations (create, get, update, delete) as well as queries and scans, **betterddb** lets you work with DynamoDB using definitions instead of ad hoc query code.
 
