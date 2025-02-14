@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  betterddb-localstack:
+    image: localstack/localstack:latest
+    container_name: betterddb-localstack
+    ports:
+      - "4566:4566"  # Main edge port
+      - "4571:4571"
+    environment:
+      - SERVICES=dynamodb
+      - DEFAULT_REGION=us-east-1
+      - DATA_DIR=/tmp/localstack_data
+      - HOST_TMP_FOLDER=${TMPDIR:-/tmp}/localstack
+      - LOCALSTACK_UI=1
+    volumes:
+      - "./localstack-tmp:/tmp/localstack_data"
