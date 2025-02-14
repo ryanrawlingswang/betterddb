@@ -32,3 +32,6 @@ coverage/
 
 # MacOS artifacts
 .DS_Store
+
+# LocalStack data
+localstack-tmp/
