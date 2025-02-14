@@ -4,7 +4,7 @@ import { BetterDDB } from '../betterddb';
 export class GetBuilder<T> {
   private projectionExpression?: string;
   private expressionAttributeNames: Record<string, string> = {};
-
+  private extraTransactItems: DynamoDB.DocumentClient.TransactGetItemList = [];
   constructor(private parent: BetterDDB<T>, private key: Partial<T>) {}
 
   /**
@@ -19,6 +19,18 @@ export class GetBuilder<T> {
   }
 
   public async execute(): Promise<T | null> {
+    if (this.extraTransactItems.length > 0) {
+      // Build our update transaction item.
+      const myTransactItem = this.toTransactGet();
+      // Combine with extra transaction items.
+      const allItems = [...this.extraTransactItems, myTransactItem];
+      await this.parent.getClient().transactGet({
+        TransactItems: allItems
+      }).promise();
+      // After transaction, retrieve the updated item.
+      const result = await this.parent.get(this.key).execute();
+      return result;
+    } else {
     const params: DynamoDB.DocumentClient.GetItemInput = {
       TableName: this.parent.getTableName(),
       Key: this.parent.buildKey(this.key)
@@ -29,7 +41,29 @@ export class GetBuilder<T> {
     }
     const result = await this.parent.getClient().get(params).promise();
     if (!result.Item) return null;
-    return this.parent.getSchema().parse(result.Item);
+      return this.parent.getSchema().parse(result.Item);
+    }
+  }
+
+  public transactGet(ops: DynamoDB.DocumentClient.TransactGetItemList | DynamoDB.DocumentClient.TransactGetItem): this {
+    if (Array.isArray(ops)) {
+      this.extraTransactItems.push(...ops);
+    } else {
+      this.extraTransactItems.push(ops);
+    }
+    return this;
+  }
+
+  public toTransactGet(): DynamoDB.DocumentClient.TransactGetItem {
+    const getItem: DynamoDB.DocumentClient.Get = {
+      TableName: this.parent.getTableName(),
+      Key: this.parent.buildKey(this.key)
+    };
+    if (this.projectionExpression) {
+      getItem.ProjectionExpression = this.projectionExpression;
+      getItem.ExpressionAttributeNames = this.expressionAttributeNames;
+    }
+    return { Get: getItem };
   }
 
   public then<TResult1 = T | null, TResult2 = never>(

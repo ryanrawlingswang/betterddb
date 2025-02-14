@@ -2,9 +2,26 @@ import { DynamoDB } from 'aws-sdk';
 import { BetterDDB } from '../betterddb';
 
 export class CreateBuilder<T> {
+  private extraTransactItems: DynamoDB.DocumentClient.TransactWriteItemList = [];
+
   constructor(private parent: BetterDDB<T>, private item: T) {}
 
   public async execute(): Promise<T> {
+    if (this.extraTransactItems.length > 0) {
+      // Build our update transaction item.
+      const myTransactItem = this.toTransactPut();
+      // Combine with extra transaction items.
+      const allItems = [...this.extraTransactItems, myTransactItem];
+      await this.parent.getClient().transactWrite({
+        TransactItems: allItems
+      }).promise();
+      // After transaction, retrieve the updated item.
+      const result = await this.parent.get(this.item).execute();
+      if (result === null) {
+        throw new Error('Item not found after transaction create');
+      }
+      return result;
+    } else {
     let item = this.item;
     if (this.parent.getAutoTimestamps()) {
       const now = new Date().toISOString();
@@ -27,7 +44,25 @@ export class CreateBuilder<T> {
       Item: finalItem as DynamoDB.DocumentClient.PutItemInputAttributeMap
     }).promise();
 
-    return validated;
+      return validated;
+    }
+  }
+
+  public transactWrite(ops: DynamoDB.DocumentClient.TransactWriteItemList | DynamoDB.DocumentClient.TransactWriteItem): this {
+    if (Array.isArray(ops)) {
+      this.extraTransactItems.push(...ops);
+    } else {
+      this.extraTransactItems.push(ops);
+    }
+    return this;
+  }
+
+  public toTransactPut(): DynamoDB.DocumentClient.TransactWriteItem {
+    const putItem: DynamoDB.DocumentClient.Put = {
+      TableName: this.parent.getTableName(),
+      Item: this.item as DynamoDB.DocumentClient.PutItemInputAttributeMap,
+    };
+    return { Put: putItem };
   }
 
   public then<TResult1 = T, TResult2 = never>(

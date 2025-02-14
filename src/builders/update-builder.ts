@@ -14,7 +14,7 @@ export class UpdateBuilder<T> {
   private condition?: { expression: string; attributeValues: Record<string, any> };
   private expectedVersion?: number;
   // When using transaction mode, we store extra transaction items.
-  private extraTransactItems?: DynamoDB.DocumentClient.TransactWriteItemList;
+  private extraTransactItems: DynamoDB.DocumentClient.TransactWriteItemList = [];
 
   // Reference to the parent BetterDDB instance and key.
   constructor(private parent: BetterDDB<T>, private key: Partial<T>, expectedVersion?: number) {
@@ -59,8 +59,12 @@ export class UpdateBuilder<T> {
   /**
    * Specifies additional transaction items to include when executing this update as a transaction.
    */
-  public transactWrite(ops: DynamoDB.DocumentClient.TransactWriteItemList): this {
-    this.extraTransactItems = ops;
+  public transactWrite(ops: DynamoDB.DocumentClient.TransactWriteItemList | DynamoDB.DocumentClient.TransactWriteItem): this {
+    if (Array.isArray(ops)) {
+      this.extraTransactItems.push(...ops);
+    } else {
+      this.extraTransactItems.push(ops);
+    }
     return this;
   }
 
@@ -188,7 +192,7 @@ export class UpdateBuilder<T> {
    * Commits the update immediately by calling the parent's update method.
    */
   public async execute(): Promise<T> {
-    if (this.extraTransactItems) {
+    if (this.extraTransactItems.length > 0) {
       // Build our update transaction item.
       const myTransactItem = this.toTransactUpdate();
       // Combine with extra transaction items.
