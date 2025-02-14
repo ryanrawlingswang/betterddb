@@ -87,7 +87,7 @@ const userDdb = new BetterDDB({
 ```
 
 ## API
-betterddb exposes a generic class DynamoDAL<T> with methods for:
+betterddb exposes a generic class BetterDDB<T> with methods for:
 
 ```ts
 create(item: T): Promise<T>
