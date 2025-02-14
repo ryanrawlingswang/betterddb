@@ -1,5 +1,4 @@
-// src/dynamo-dal.ts
-import { z, ZodSchema } from 'zod';
+import { ZodSchema } from 'zod';
 import { DynamoDB } from 'aws-sdk';
 import { QueryBuilder } from './builders/query-builder';
 import { ScanBuilder } from './builders/scan-builder';
