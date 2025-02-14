@@ -31,8 +31,9 @@ const userDdb = new BetterDDB({
   tableName: TEST_TABLE,
   entityName: ENTITY_NAME,
   keys: {
-    primary: { name: PRIMARY_KEY, definition: { build: (raw) => raw.id! } },
-    sort: { name: SORT_KEY, definition: { build: (raw) => raw.email! } },
+    primary: { name: "pk", definition: { build: (raw) => `USER#${raw.id}` } },
+    sort: { name: "sk", definition: { build: (raw) => `EMAIL#${raw.email}` } },
+    gsis: { gsi1: { name: 'gsi1', primary: { name: "gsi1pk", definition: { build: (raw) => "NAME" } }, sort: { name: "gsi1sk", definition: { build: (raw) => `NAME#${raw.name}` } } } },
   },
   client,
   autoTimestamps: true,
@@ -49,11 +50,24 @@ afterAll(async () => {
 describe('BetterDDB - Create Operation', () => {
   it('should insert an item using CreateBuilder', async () => {
     const user = { id: 'user-123', name: 'John Doe', email: 'john@example.com' };
+
     await userDdb.create(user as any).execute();
-    const createdUser = await userDdb.get({ id: 'user-123', email: 'john@example.com' }).execute();
-    expect(createdUser).not.toBeNull();
-    expect(createdUser?.id).toBe('user-123');
-    expect(createdUser).toHaveProperty('createdAt');
-    expect(createdUser).toHaveProperty('updatedAt');
+
+    const result = await client.get({ TableName: TEST_TABLE, Key: { id: 'user-123', email: 'john@example.com' } }).promise();
+
+    expect(result).not.toBeNull();
+    expect(result.Item).not.toBeNull();
+    expect(result.Item?.pk).toBe('USER#user-123');
+    expect(result.Item?.sk).toBe('EMAIL#john@example.com');
+    expect(result.Item?.gsi1pk).toBe('NAME');
+    expect(result.Item?.gsi1sk).toBe('NAME#John Doe');
+    expect(result.Item?.id).toBe('user-123');
+    expect(result.Item?.createdAt).not.toBeNull();
+    expect(result.Item?.updatedAt).not.toBeNull();
+  });
+
+  it('should fails to validate and not insert an item', async () => {
+    const user = { id: 'user-123', email: 'john@example.com' };
+    await expect(userDdb.create(user as any).execute()).rejects.toThrow();
   });
 });
