@@ -41,7 +41,11 @@ export interface SortKeyConfig<T> {
  * Configuration for a Global Secondary Index (GSI).
  */
 export interface GSIConfig<T> {
+  /** The name of the GSI in DynamoDB */
+  name: string;
+  /** The primary key configuration for the GSI */
   primary: PrimaryKeyConfig<T>;
+  /** The sort key configuration for the GSI, if any */
   sort?: SortKeyConfig<T>;
 }
 
