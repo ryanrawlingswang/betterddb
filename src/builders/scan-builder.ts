@@ -69,7 +69,7 @@ export class ScanBuilder<T> {
     }
 
     const result = await this.parent.getClient().scan(params).promise();
-    return (result.Items || []).map(item => this.parent.getSchema().parse(item));
+    return this.parent.getSchema().array().parse(result.Items);
   }
 
   // Thenable implementation.
