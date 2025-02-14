@@ -22,13 +22,10 @@ const UserSchema = z.object({
   userId: z.string(),
   email: z.string().email(),
   name: z.string(),
-  // Computed keys and metadata:
-  pk: z.string(),
-  sk: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
   version: z.number().optional()
-}).passthrough();
+});
 
 // Configure the DynamoDB DocumentClient (for example, using LocalStack)
 const client = new DynamoDB.DocumentClient({
@@ -89,8 +86,9 @@ const userDdb = new BetterDDB({
 })();
 ```
 
-###API
+## API
 betterddb exposes a generic class DynamoDAL<T> with methods for:
+
 ```ts
 create(item: T): Promise<T>
 get(rawKey: Partial<T>): Promise<T | null>
