@@ -1,7 +1,8 @@
 import { DynamoDB } from 'aws-sdk';
 import { BetterDDB } from '../betterddb';
+import { z } from 'zod';
 
-export class QueryBuilder<T> {
+export class QueryBuilder<S extends z.ZodType<any>> {
   private filters: string[] = [];
   private expressionAttributeNames: Record<string, string> = {};
   private expressionAttributeValues: Record<string, any> = {};
@@ -11,7 +12,7 @@ export class QueryBuilder<T> {
   private lastKey?: Record<string, any>;
   private ascending: boolean = true;
 
-  constructor(private parent: BetterDDB<T>, private key: Partial<T>) {}
+  constructor(private parent: BetterDDB<S>, private key: Partial<S>) {}
 
   public usingIndex(indexName: string): this {
     this.indexName = indexName;
@@ -29,7 +30,7 @@ export class QueryBuilder<T> {
   }
 
   public where(
-    attribute: keyof T,
+    attribute: keyof S,
     operator: 'eq' | 'begins_with' | 'between',
     values: any | [any, any]
   ): this {
@@ -73,7 +74,7 @@ export class QueryBuilder<T> {
   /**
    * Executes the query and returns a Promise that resolves with an array of items.
    */
-  public async execute(): Promise<T[]> {
+  public async execute(): Promise<S[]> {
     // Build a simple key condition for the partition key.
     const keys = this.parent.getKeys();
     const pkName = keys.primary.name;
@@ -110,18 +111,18 @@ export class QueryBuilder<T> {
   }
 
   // Thenable implementation.
-  public then<TResult1 = T[], TResult2 = never>(
-    onfulfilled?: ((value: T[]) => TResult1 | PromiseLike<TResult1>) | null,
+  public then<TResult1 = S[], TResult2 = never>(
+    onfulfilled?: ((value: S[]) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
   }
   public catch<TResult = never>(
     onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null
-  ): Promise<T[] | TResult> {
+  ): Promise<S[] | TResult> {
     return this.execute().catch(onrejected);
   }
-  public finally(onfinally?: (() => void) | null): Promise<T[]> {
+  public finally(onfinally?: (() => void) | null): Promise<S[]> {
     return this.execute().finally(onfinally);
   }
 }

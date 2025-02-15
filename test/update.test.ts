@@ -26,7 +26,7 @@ const UserSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   version: z.number().optional(),
-}).passthrough();
+});
 
 const userDdb = new BetterDDB({
   schema: UserSchema,

@@ -1,17 +1,18 @@
 import { DynamoDB } from 'aws-sdk';
 import { BetterDDB } from '../betterddb';
+import { z } from 'zod';
 
-export class ScanBuilder<T> {
+export class ScanBuilder<S extends z.ZodType<any>> {
   private filters: string[] = [];
   private expressionAttributeNames: Record<string, string> = {};
   private expressionAttributeValues: Record<string, any> = {};
   private limit?: number;
   private lastKey?: Record<string, any>;
 
-  constructor(private parent: BetterDDB<T>) {}
+  constructor(private parent: BetterDDB<S>) {}
 
   public where(
-    attribute: keyof T,
+    attribute: keyof S,
     operator: 'eq' | 'begins_with' | 'between',
     values: any | [any, any]
   ): this {
@@ -55,7 +56,7 @@ export class ScanBuilder<T> {
   /**
    * Executes the scan and returns a Promise that resolves with an array of items.
    */
-  public async execute(): Promise<T[]> {
+  public async execute(): Promise<S[]> {
     const params: DynamoDB.DocumentClient.ScanInput = {
       TableName: this.parent.getTableName(),
       ExpressionAttributeNames: this.expressionAttributeNames,
@@ -73,18 +74,18 @@ export class ScanBuilder<T> {
   }
 
   // Thenable implementation.
-  public then<TResult1 = T[], TResult2 = never>(
-    onfulfilled?: ((value: T[]) => TResult1 | PromiseLike<TResult1>) | null,
+  public then<TResult1 = S[], TResult2 = never>(
+    onfulfilled?: ((value: S[]) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
   }
   public catch<TResult = never>(
     onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null
-  ): Promise<T[] | TResult> {
+  ): Promise<S[] | TResult> {
     return this.execute().catch(onrejected);
   }
-  public finally(onfinally?: (() => void) | null): Promise<T[]> {
+  public finally(onfinally?: (() => void) | null): Promise<S[]> {
     return this.execute().finally(onfinally);
   }
 }
