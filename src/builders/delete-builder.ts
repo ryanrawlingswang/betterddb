@@ -1,11 +1,10 @@
 import { DynamoDB } from 'aws-sdk';
 import { BetterDDB } from '../betterddb';
-import { z } from 'zod';
 
-export class DeleteBuilder<S extends z.ZodType<any>> {
+export class DeleteBuilder<T> {
   private condition?: { expression: string; attributeValues: Record<string, any> };
   private extraTransactItems: DynamoDB.DocumentClient.TransactWriteItemList = [];
-  constructor(private parent: BetterDDB<S>, private key: Partial<S>) {}
+  constructor(private parent: BetterDDB<T>, private key: Partial<T>) {}
 
   /**
    * Specify a condition expression for the delete operation.

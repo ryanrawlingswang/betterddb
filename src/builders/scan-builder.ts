@@ -1,18 +1,17 @@
 import { DynamoDB } from 'aws-sdk';
 import { BetterDDB } from '../betterddb';
-import { z } from 'zod';
 
-export class ScanBuilder<S extends z.ZodType<any>> {
+export class ScanBuilder<T> {
   private filters: string[] = [];
   private expressionAttributeNames: Record<string, string> = {};
   private expressionAttributeValues: Record<string, any> = {};
   private limit?: number;
   private lastKey?: Record<string, any>;
 
-  constructor(private parent: BetterDDB<S>) {}
+  constructor(private parent: BetterDDB<T>) {}
 
   public where(
-    attribute: keyof S,
+    attribute: keyof T,
     operator: 'eq' | 'begins_with' | 'between',
     values: any | [any, any]
   ): this {
@@ -56,7 +55,7 @@ export class ScanBuilder<S extends z.ZodType<any>> {
   /**
    * Executes the scan and returns a Promise that resolves with an array of items.
    */
-  public async execute(): Promise<S[]> {
+  public async execute(): Promise<T[]> {
     const params: DynamoDB.DocumentClient.ScanInput = {
       TableName: this.parent.getTableName(),
       ExpressionAttributeNames: this.expressionAttributeNames,
@@ -74,18 +73,18 @@ export class ScanBuilder<S extends z.ZodType<any>> {
   }
 
   // Thenable implementation.
-  public then<TResult1 = S[], TResult2 = never>(
-    onfulfilled?: ((value: S[]) => TResult1 | PromiseLike<TResult1>) | null,
+  public then<TResult1 = T[], TResult2 = never>(
+    onfulfilled?: ((value: T[]) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
   }
   public catch<TResult = never>(
     onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null
-  ): Promise<S[] | TResult> {
+  ): Promise<T[] | TResult> {
     return this.execute().catch(onrejected);
   }
-  public finally(onfinally?: (() => void) | null): Promise<S[]> {
+  public finally(onfinally?: (() => void) | null): Promise<T[]> {
     return this.execute().finally(onfinally);
   }
 }

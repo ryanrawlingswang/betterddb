@@ -1,13 +1,12 @@
 import { DynamoDB } from 'aws-sdk';
 import { BetterDDB } from '../betterddb';
-import { z } from 'zod';
 
-export class CreateBuilder<S extends z.ZodType<any>> {
+export class CreateBuilder<T> {
   private extraTransactItems: DynamoDB.DocumentClient.TransactWriteItemList = [];
 
-  constructor(private parent: BetterDDB<S>, private item: S) {}
+  constructor(private parent: BetterDDB<T>, private item: T) {}
 
-  public async execute(): Promise<S> {
+  public async execute(): Promise<T> {
     if (this.extraTransactItems.length > 0) {
       // Build our update transaction item.
       const myTransactItem = this.toTransactPut();
@@ -26,7 +25,7 @@ export class CreateBuilder<S extends z.ZodType<any>> {
     let item = this.item;
     if (this.parent.getAutoTimestamps()) {
       const now = new Date().toISOString();
-      item = { ...item, createdAt: now, updatedAt: now } as S;
+      item = { ...item, createdAt: now, updatedAt: now } as T;
     }
     // Validate the item using the schema.
     const validated = this.parent.getSchema().parse(item);
@@ -66,18 +65,18 @@ export class CreateBuilder<S extends z.ZodType<any>> {
     return { Put: putItem };
   }
 
-  public then<TResult1 = S, TResult2 = never>(
-    onfulfilled?: ((value: S) => TResult1 | PromiseLike<TResult1>) | null,
+  public then<TResult1 = T, TResult2 = never>(
+    onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
     return this.execute().then(onfulfilled, onrejected);
   }
   public catch<TResult = never>(
     onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null
-  ): Promise<S | TResult> {
+  ): Promise<T | TResult> {
     return this.execute().catch(onrejected);
   }
-  public finally(onfinally?: (() => void) | null): Promise<S> {
+  public finally(onfinally?: (() => void) | null): Promise<T> {
     return this.execute().finally(onfinally);
   }
 }

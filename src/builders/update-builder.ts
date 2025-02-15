@@ -1,44 +1,43 @@
 
 import { DynamoDB } from 'aws-sdk';
 import { BetterDDB } from '../betterddb';
-import { z } from 'zod';
 
-interface UpdateActions<S extends z.ZodType<any>> {
-  set?: Partial<S>;
-  remove?: (keyof S)[];
-  add?: Partial<Record<keyof S, number | Set<any>>>;
-  delete?: Partial<Record<keyof S, Set<any>>>;
+interface UpdateActions<T> {
+  set?: Partial<T>;
+  remove?: (keyof T)[];
+  add?: Partial<Record<keyof T, number | Set<any>>>;
+  delete?: Partial<Record<keyof T, Set<any>>>;
 }
 
-export class UpdateBuilder<S extends z.ZodType<any>> {
-  private actions: UpdateActions<S> = {};
+export class UpdateBuilder<T> {
+  private actions: UpdateActions<T> = {};
   private condition?: { expression: string; attributeValues: Record<string, any> };
   private expectedVersion?: number;
   // When using transaction mode, we store extra transaction items.
   private extraTransactItems: DynamoDB.DocumentClient.TransactWriteItemList = [];
 
   // Reference to the parent BetterDDB instance and key.
-  constructor(private parent: BetterDDB<S>, private key: Partial<S>, expectedVersion?: number) {
+  constructor(private parent: BetterDDB<T>, private key: Partial<T>, expectedVersion?: number) {
     this.expectedVersion = expectedVersion;
   }
 
   // Chainable methods:
-  public set(attrs: Partial<S>): this {
+  public set(attrs: Partial<T>): this {
     this.actions.set = { ...this.actions.set, ...attrs };
     return this;
   }
 
-  public remove(attrs: (keyof S)[]): this {
+  public remove(attrs: (keyof T)[]): this {
     this.actions.remove = [...(this.actions.remove || []), ...attrs];
     return this;
   }
 
-  public add(attrs: Partial<Record<keyof S, number | Set<any>>>): this {
+  public add(attrs: Partial<Record<keyof T, number | Set<any>>>): this {
     this.actions.add = { ...this.actions.add, ...attrs };
     return this;
   }
 
-  public delete(attrs: Partial<Record<keyof S, Set<any>>>): this {
+  public delete(attrs: Partial<Record<keyof T, Set<any>>>): this {
     this.actions.delete = { ...this.actions.delete, ...attrs };
     return this;
   }
@@ -192,7 +191,7 @@ export class UpdateBuilder<S extends z.ZodType<any>> {
   /**
    * Commits the update immediately by calling the parent's update method.
    */
-  public async execute(): Promise<S> {
+  public async execute(): Promise<T> {
     if (this.extraTransactItems.length > 0) {
       // Build our update transaction item.
       const myTransactItem = this.toTransactUpdate();
