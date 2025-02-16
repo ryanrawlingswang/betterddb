@@ -1,10 +1,10 @@
-import { DynamoDB } from 'aws-sdk';
 import { BetterDDB } from '../betterddb';
-
+import { TransactGetCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { GetItemInput, TransactGetItem } from '@aws-sdk/client-dynamodb';
 export class GetBuilder<T> {
   private projectionExpression?: string;
   private expressionAttributeNames: Record<string, string> = {};
-  private extraTransactItems: DynamoDB.DocumentClient.TransactGetItemList = [];
+  private extraTransactItems: TransactGetItem[] = [];
   constructor(private parent: BetterDDB<T>, private key: Partial<T>) {}
 
   /**
@@ -24,14 +24,14 @@ export class GetBuilder<T> {
       const myTransactItem = this.toTransactGet();
       // Combine with extra transaction items.
       const allItems = [...this.extraTransactItems, myTransactItem];
-      await this.parent.getClient().transactGet({
+      await this.parent.getClient().send(new TransactGetCommand({
         TransactItems: allItems
-      }).promise();
+      }));
       // After transaction, retrieve the updated item.
       const result = await this.parent.get(this.key).execute();
       return result;
     } else {
-    const params: DynamoDB.DocumentClient.GetItemInput = {
+    const params: GetItemInput = {
       TableName: this.parent.getTableName(),
       Key: this.parent.buildKey(this.key)
     };
@@ -39,13 +39,13 @@ export class GetBuilder<T> {
       params.ProjectionExpression = this.projectionExpression;
       params.ExpressionAttributeNames = this.expressionAttributeNames;
     }
-    const result = await this.parent.getClient().get(params).promise();
+    const result = await this.parent.getClient().send(new GetCommand(params));
     if (!result.Item) return null;
-      return this.parent.getSchema().parse(result.Item);
+      return this.parent.getSchema().parse(result.Item) as T;
     }
   }
 
-  public transactGet(ops: DynamoDB.DocumentClient.TransactGetItemList | DynamoDB.DocumentClient.TransactGetItem): this {
+  public transactGet(ops: TransactGetItem[] | TransactGetItem): this {
     if (Array.isArray(ops)) {
       this.extraTransactItems.push(...ops);
     } else {
@@ -54,8 +54,8 @@ export class GetBuilder<T> {
     return this;
   }
 
-  public toTransactGet(): DynamoDB.DocumentClient.TransactGetItem {
-    const getItem: DynamoDB.DocumentClient.Get = {
+  public toTransactGet(): TransactGetItem {
+    const getItem: GetItemInput = {
       TableName: this.parent.getTableName(),
       Key: this.parent.buildKey(this.key)
     };

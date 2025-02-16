@@ -1,7 +1,8 @@
 
-import { DynamoDB } from 'aws-sdk';
-import { BetterDDB } from '../betterddb';
 
+import { TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { BetterDDB } from '../betterddb';
+import { TransactWriteItem, Update, UpdateItemInput } from '@aws-sdk/client-dynamodb';
 interface UpdateActions<T> {
   set?: Partial<T>;
   remove?: (keyof T)[];
@@ -14,7 +15,7 @@ export class UpdateBuilder<T> {
   private condition?: { expression: string; attributeValues: Record<string, any> };
   private expectedVersion?: number;
   // When using transaction mode, we store extra transaction items.
-  private extraTransactItems: DynamoDB.DocumentClient.TransactWriteItemList = [];
+  private extraTransactItems: TransactWriteItem[] = [];
 
   // Reference to the parent BetterDDB instance and key.
   constructor(private parent: BetterDDB<T>, private key: Partial<T>, expectedVersion?: number) {
@@ -59,7 +60,7 @@ export class UpdateBuilder<T> {
   /**
    * Specifies additional transaction items to include when executing this update as a transaction.
    */
-  public transactWrite(ops: DynamoDB.DocumentClient.TransactWriteItemList | DynamoDB.DocumentClient.TransactWriteItem): this {
+  public transactWrite(ops: TransactWriteItem[] | TransactWriteItem): this {
     if (Array.isArray(ops)) {
       this.extraTransactItems.push(...ops);
     } else {
@@ -173,9 +174,9 @@ export class UpdateBuilder<T> {
   /**
    * Returns a transaction update item that can be included in a transactWrite call.
    */
-  public toTransactUpdate(): DynamoDB.DocumentClient.TransactWriteItem {
+  public toTransactUpdate(): TransactWriteItem {
     const { updateExpression, attributeNames, attributeValues } = this.buildExpression();
-    const updateItem: DynamoDB.DocumentClient.Update = {
+    const updateItem: Update = {
       TableName: this.parent.getTableName(),
       Key: this.parent.buildKey(this.key),
       UpdateExpression: updateExpression,
@@ -197,9 +198,9 @@ export class UpdateBuilder<T> {
       const myTransactItem = this.toTransactUpdate();
       // Combine with extra transaction items.
       const allItems = [...this.extraTransactItems, myTransactItem];
-      await this.parent.getClient().transactWrite({
+      await this.parent.getClient().send(new TransactWriteCommand({
         TransactItems: allItems
-      }).promise();
+      }));
       // After transaction, retrieve the updated item.
       const result = await this.parent.get(this.key).execute();
       if (result === null) {
@@ -209,7 +210,7 @@ export class UpdateBuilder<T> {
     } else {
       // Normal update flow.
       const { updateExpression, attributeNames, attributeValues } = this.buildExpression();
-      const params: DynamoDB.DocumentClient.UpdateItemInput = {
+      const params: UpdateItemInput = {
         TableName: this.parent.getTableName(),
         Key: this.parent.buildKey(this.key),
         UpdateExpression: updateExpression,
@@ -220,11 +221,11 @@ export class UpdateBuilder<T> {
       if (this.condition && this.condition.expression) {
         params.ConditionExpression = this.condition.expression;
       }
-      const result = await this.parent.getClient().update(params).promise();
+      const result = await this.parent.getClient().send(new UpdateCommand(params));
       if (!result.Attributes) {
         throw new Error('No attributes returned after update');
       }
-      return this.parent.getSchema().parse(result.Attributes);
+      return this.parent.getSchema().parse(result.Attributes) as T;
     }
   }
 }

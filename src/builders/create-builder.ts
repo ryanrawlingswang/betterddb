@@ -1,8 +1,10 @@
-import { DynamoDB } from 'aws-sdk';
+
+import { AttributeValue, Put, TransactWriteItem } from '@aws-sdk/client-dynamodb';
 import { BetterDDB } from '../betterddb';
+import { PutCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 
 export class CreateBuilder<T> {
-  private extraTransactItems: DynamoDB.DocumentClient.TransactWriteItemList = [];
+  private extraTransactItems: TransactWriteItem[] = [];
 
   constructor(private parent: BetterDDB<T>, private item: T) {}
 
@@ -12,9 +14,9 @@ export class CreateBuilder<T> {
       const myTransactItem = this.toTransactPut();
       // Combine with extra transaction items.
       const allItems = [...this.extraTransactItems, myTransactItem];
-      await this.parent.getClient().transactWrite({
+      await this.parent.getClient().send(new TransactWriteCommand({
         TransactItems: allItems
-      }).promise();
+      }));
       // After transaction, retrieve the updated item.
       const result = await this.parent.get(this.item).execute();
       if (result === null) {
@@ -32,23 +34,23 @@ export class CreateBuilder<T> {
     let finalItem = { ...validated };
 
     // Compute and merge primary key.
-    const computedKeys = this.parent.buildKey(validated);
+    const computedKeys = this.parent.buildKey(validated as Partial<T>);
     finalItem = { ...finalItem, ...computedKeys };
 
     // Compute and merge index attributes.
-    const indexAttributes = this.parent.buildIndexes(validated);
+    const indexAttributes = this.parent.buildIndexes(validated as Partial<T>);
     finalItem = { ...finalItem, ...indexAttributes };
 
-    await this.parent.getClient().put({
+    await this.parent.getClient().send(new PutCommand({
       TableName: this.parent.getTableName(),
-      Item: finalItem as DynamoDB.DocumentClient.PutItemInputAttributeMap
-    }).promise();
+      Item: finalItem
+    }));
 
-      return validated;
+      return validated as T;
     }
   }
 
-  public transactWrite(ops: DynamoDB.DocumentClient.TransactWriteItemList | DynamoDB.DocumentClient.TransactWriteItem): this {
+  public transactWrite(ops: TransactWriteItem[] | TransactWriteItem): this {
     if (Array.isArray(ops)) {
       this.extraTransactItems.push(...ops);
     } else {
@@ -57,10 +59,10 @@ export class CreateBuilder<T> {
     return this;
   }
 
-  public toTransactPut(): DynamoDB.DocumentClient.TransactWriteItem {
-    const putItem: DynamoDB.DocumentClient.Put = {
+  public toTransactPut(): TransactWriteItem{
+    const putItem: Put = {
       TableName: this.parent.getTableName(),
-      Item: this.item as DynamoDB.DocumentClient.PutItemInputAttributeMap,
+      Item: this.item as Record<string, AttributeValue>,
     };
     return { Put: putItem };
   }

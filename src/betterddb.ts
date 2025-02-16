@@ -1,11 +1,11 @@
-import { ZodSchema } from 'zod';
-import { DynamoDB } from 'aws-sdk';
+import { z, ZodSchema } from 'zod';
 import { QueryBuilder } from './builders/query-builder';
 import { ScanBuilder } from './builders/scan-builder';
 import { UpdateBuilder } from './builders/update-builder';
 import { CreateBuilder } from './builders/create-builder';
 import { GetBuilder } from './builders/get-builder';
 import { DeleteBuilder } from './builders/delete-builder';
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 export type PrimaryKeyValue = string | number;
 
@@ -69,11 +69,11 @@ export interface KeysConfig<T> {
  * Options for initializing BetterDDB.
  */
 export interface BetterDDBOptions<T> {
-  schema: ZodSchema<T>;
+  schema: z.AnyZodObject;
   tableName: string;
   entityName: string;
   keys: KeysConfig<T>;
-  client: DynamoDB.DocumentClient;
+  client: DynamoDBDocumentClient;
   /**
    * If true, automatically inject timestamp fields:
    * - On create, sets both `createdAt` and `updatedAt`
@@ -88,10 +88,10 @@ export interface BetterDDBOptions<T> {
  * BetterDDB is a definition-based DynamoDB wrapper library.
  */
 export class BetterDDB<T> {
-  protected schema: ZodSchema<T>;
+  protected schema: z.AnyZodObject;
   protected tableName: string;
   protected entityName: string;
-  protected client: DynamoDB.DocumentClient;
+  protected client: DynamoDBDocumentClient;
   protected keys: KeysConfig<T>;
   protected autoTimestamps: boolean;
 
@@ -112,12 +112,12 @@ export class BetterDDB<T> {
     return this.tableName;
   }
   
-  public getClient(): DynamoDB.DocumentClient {
+  public getClient(): DynamoDBDocumentClient {
     return this.client;
   }
   
   
-  public getSchema(): ZodSchema<T> {
+  public getSchema(): z.AnyZodObject {
     return this.schema;
   }
 

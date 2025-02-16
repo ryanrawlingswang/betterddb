@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { BetterDDB } from '../src/betterddb';
-import { DynamoDB } from 'aws-sdk';
 import { createTestTable, deleteTestTable } from './utils/table-setup';
-
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDB } from '@aws-sdk/client-dynamodb';
+import { GetCommand } from '@aws-sdk/lib-dynamodb';
+import { KeySchemaElement, AttributeDefinition } from '@aws-sdk/client-dynamodb';
 const TEST_TABLE = "create-test-table";
 const ENDPOINT = 'http://localhost:4566';
 const REGION = 'us-east-1';
@@ -11,12 +13,12 @@ const PRIMARY_KEY = 'id';
 const PRIMARY_KEY_TYPE = 'S';
 const SORT_KEY = 'email';
 const SORT_KEY_TYPE = 'S';
-const KEY_SCHEMA = [{ AttributeName: PRIMARY_KEY, KeyType: 'HASH' }, { AttributeName: SORT_KEY, KeyType: 'RANGE' }];
-const ATTRIBUTE_DEFINITIONS = [{ AttributeName: PRIMARY_KEY, AttributeType: PRIMARY_KEY_TYPE }, { AttributeName: SORT_KEY, AttributeType: SORT_KEY_TYPE }];
-const client = new DynamoDB.DocumentClient({
+const KEY_SCHEMA = [{ AttributeName: PRIMARY_KEY, KeyType: 'HASH' }, { AttributeName: SORT_KEY, KeyType: 'RANGE' }] as KeySchemaElement[];
+const ATTRIBUTE_DEFINITIONS = [{ AttributeName: PRIMARY_KEY, AttributeType: PRIMARY_KEY_TYPE }, { AttributeName: SORT_KEY, AttributeType: SORT_KEY_TYPE }] as AttributeDefinition[];
+const client = DynamoDBDocumentClient.from(new DynamoDB({
   region: REGION,
   endpoint: ENDPOINT,
-});
+}));
 
 const UserSchema = z.object({
   id: z.string(),
@@ -26,7 +28,9 @@ const UserSchema = z.object({
   updatedAt: z.string(),
 });
 
-const userDdb = new BetterDDB({
+type User = z.infer<typeof UserSchema>;
+
+const userDdb = new BetterDDB<User>({
   schema: UserSchema,
   tableName: TEST_TABLE,
   entityName: ENTITY_NAME,
@@ -53,7 +57,7 @@ describe('BetterDDB - Create Operation', () => {
 
     await userDdb.create(user as any).execute();
 
-    const result = await client.get({ TableName: TEST_TABLE, Key: { id: 'user-123', email: 'john@example.com' } }).promise();
+    const result = await client.send(new GetCommand({ TableName: TEST_TABLE, Key: { id: 'user-123', email: 'john@example.com' } }));
 
     expect(result).not.toBeNull();
     expect(result.Item).not.toBeNull();

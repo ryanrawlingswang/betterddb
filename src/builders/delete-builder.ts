@@ -1,9 +1,9 @@
-import { DynamoDB } from 'aws-sdk';
 import { BetterDDB } from '../betterddb';
-
+import { TransactWriteItem, DeleteItemInput } from '@aws-sdk/client-dynamodb';
+import { TransactWriteCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 export class DeleteBuilder<T> {
   private condition?: { expression: string; attributeValues: Record<string, any> };
-  private extraTransactItems: DynamoDB.DocumentClient.TransactWriteItemList = [];
+  private extraTransactItems: TransactWriteItem[] = [];
   constructor(private parent: BetterDDB<T>, private key: Partial<T>) {}
 
   /**
@@ -25,16 +25,16 @@ export class DeleteBuilder<T> {
       const myTransactItem = this.toTransactDelete();
       // Combine with extra transaction items.
       const allItems = [...this.extraTransactItems, myTransactItem];
-      await this.parent.getClient().transactWrite({
+      await this.parent.getClient().send(new TransactWriteCommand({
         TransactItems: allItems
-      }).promise();
+      }));
       // After transaction, retrieve the updated item.
       const result = await this.parent.get(this.key).execute();
       if (result === null) {
         throw new Error('Item not found after transaction delete');
       }
     } else {
-    const params: DynamoDB.DocumentClient.DeleteItemInput = {
+    const params: DeleteItemInput = {
       TableName: this.parent.getTableName(),
       Key: this.parent.buildKey(this.key)
     };
@@ -42,11 +42,11 @@ export class DeleteBuilder<T> {
       params.ConditionExpression = this.condition.expression;
         params.ExpressionAttributeValues = this.condition.attributeValues;
       }
-      await this.parent.getClient().delete(params).promise();
+      await this.parent.getClient().send(new DeleteCommand(params));
     }
   }
 
-  public transactWrite(ops: DynamoDB.DocumentClient.TransactWriteItemList | DynamoDB.DocumentClient.TransactWriteItem): this {
+  public transactWrite(ops: TransactWriteItem[] | TransactWriteItem): this {
     if (Array.isArray(ops)) {
       this.extraTransactItems.push(...ops);
     } else {
@@ -55,8 +55,8 @@ export class DeleteBuilder<T> {
     return this;
   }
 
-  public toTransactDelete(): DynamoDB.DocumentClient.TransactWriteItem {
-    const deleteItem: DynamoDB.DocumentClient.Delete = {
+  public toTransactDelete(): TransactWriteItem {
+    const deleteItem: DeleteItemInput = {
       TableName: this.parent.getTableName(),
       Key: this.parent.buildKey(this.key)
     };

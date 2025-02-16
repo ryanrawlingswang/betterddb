@@ -1,4 +1,4 @@
-import { DynamoDB } from 'aws-sdk';
+import { ScanCommand, ScanCommandInput } from '@aws-sdk/lib-dynamodb';
 import { BetterDDB } from '../betterddb';
 
 export class ScanBuilder<T> {
@@ -56,7 +56,7 @@ export class ScanBuilder<T> {
    * Executes the scan and returns a Promise that resolves with an array of items.
    */
   public async execute(): Promise<T[]> {
-    const params: DynamoDB.DocumentClient.ScanInput = {
+    const params: ScanCommandInput = {
       TableName: this.parent.getTableName(),
       ExpressionAttributeNames: this.expressionAttributeNames,
       ExpressionAttributeValues: this.expressionAttributeValues,
@@ -68,8 +68,8 @@ export class ScanBuilder<T> {
       params.FilterExpression = this.filters.join(' AND ');
     }
 
-    const result = await this.parent.getClient().scan(params).promise();
-    return this.parent.getSchema().array().parse(result.Items);
+    const result = await this.parent.getClient().send(new ScanCommand(params));
+    return this.parent.getSchema().array().parse(result.Items) as T[];
   }
 
   // Thenable implementation.

@@ -1,4 +1,4 @@
-import { DynamoDB } from 'aws-sdk';
+import { QueryCommand, QueryCommandInput } from '@aws-sdk/lib-dynamodb';
 import { BetterDDB } from '../betterddb';
 
 export class QueryBuilder<T> {
@@ -90,7 +90,7 @@ export class QueryBuilder<T> {
     }
 
     // If any filters were added, set them as FilterExpression.
-    const params: DynamoDB.DocumentClient.QueryInput = {
+    const params: QueryCommandInput = {
       TableName: this.parent.getTableName(),
       KeyConditionExpression: keyConditionExpression,
       ExpressionAttributeNames: this.expressionAttributeNames,
@@ -105,8 +105,8 @@ export class QueryBuilder<T> {
       params.FilterExpression = this.filters.join(' AND ');
     }
 
-    const result = await this.parent.getClient().query(params).promise();
-    return this.parent.getSchema().array().parse(result.Items);
+    const result = await this.parent.getClient().send(new QueryCommand(params));
+    return this.parent.getSchema().array().parse(result.Items) as T[];
   }
 
   // Thenable implementation.

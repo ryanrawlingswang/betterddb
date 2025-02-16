@@ -28,7 +28,8 @@
   "author": "R.R. Wang",
   "license": "MIT",
   "dependencies": {
-    "aws-sdk": "^2.1370.0",
+    "@aws-sdk/lib-dynamodb": "^3.744.0",
+    "@aws-sdk/client-dynamodb": "^3.744.0",
     "zod": "^3.21.4"
   },
   "devDependencies": {
