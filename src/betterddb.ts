@@ -69,7 +69,7 @@ export interface KeysConfig<T> {
  * Options for initializing BetterDDB.
  */
 export interface BetterDDBOptions<T> {
-  schema: z.ZodType<T, z.ZodTypeDef, T>;
+  schema: z.ZodType<T, z.ZodTypeDef, any>;
   tableName: string;
   entityName: string;
   keys: KeysConfig<T>;
@@ -88,7 +88,7 @@ export interface BetterDDBOptions<T> {
  * BetterDDB is a definition-based DynamoDB wrapper library.
  */
 export class BetterDDB<T> {
-  protected schema: z.ZodType<T, z.ZodTypeDef, T>;
+  protected schema: z.ZodType<T, z.ZodTypeDef, any>;
   protected tableName: string;
   protected entityName: string;
   protected client: DynamoDBDocumentClient;
@@ -117,7 +117,7 @@ export class BetterDDB<T> {
   }
   
   
-  public getSchema(): z.ZodType<T, z.ZodTypeDef, T> {
+  public getSchema(): z.ZodType<T, z.ZodTypeDef, any> {
     return this.schema;
   }
 
