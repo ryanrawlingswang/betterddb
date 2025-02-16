@@ -6,6 +6,7 @@ import { CreateBuilder } from './builders/create-builder';
 import { GetBuilder } from './builders/get-builder';
 import { DeleteBuilder } from './builders/delete-builder';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { BatchGetBuilder } from './builders/batch-get-builder';
 
 export type PrimaryKeyValue = string | number;
 
@@ -210,6 +211,13 @@ export class BetterDDB<T> {
    */
   public get(rawKey: Partial<T>): GetBuilder<T> {
     return new GetBuilder<T>(this, rawKey);
+  }
+
+  /**
+   * Get multiple items by their primary keys.
+   */
+  public batchGet(rawKeys: Partial<T>[]): BatchGetBuilder<T> {
+    return new BatchGetBuilder<T>(this, rawKeys);
   }
 
   /**
