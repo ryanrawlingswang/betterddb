@@ -43,7 +43,7 @@ export class CreateBuilder<T> {
 
     await this.parent.getClient().send(new PutCommand({
       TableName: this.parent.getTableName(),
-      Item: finalItem
+      Item: finalItem as Record<string, AttributeValue>
     }));
 
       return validated as T;
