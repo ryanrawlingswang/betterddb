@@ -227,8 +227,8 @@ export class BetterDDB<T> {
   /**
    * Update an item.
    */
-  public update(key: Partial<T>, expectedVersion?: number): UpdateBuilder<T> {
-    return new UpdateBuilder<T>(this, key, expectedVersion);
+  public update(key: Partial<T>): UpdateBuilder<T> {
+    return new UpdateBuilder<T>(this, key);
   }
 
   /**
