@@ -66,19 +66,4 @@ export class CreateBuilder<T> {
     };
     return { Put: putItem };
   }
-
-  public then<TResult1 = T, TResult2 = never>(
-    onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
-  ): Promise<TResult1 | TResult2> {
-    return this.execute().then(onfulfilled, onrejected);
-  }
-  public catch<TResult = never>(
-    onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null
-  ): Promise<T | TResult> {
-    return this.execute().catch(onrejected);
-  }
-  public finally(onfinally?: (() => void) | null): Promise<T> {
-    return this.execute().finally(onfinally);
-  }
 }

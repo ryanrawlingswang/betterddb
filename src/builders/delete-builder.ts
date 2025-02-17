@@ -66,19 +66,4 @@ export class DeleteBuilder<T> {
     }
     return { Delete: deleteItem };
   }
-
-  public then<TResult1 = void, TResult2 = never>(
-    onfulfilled?: ((value: void) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
-  ): Promise<TResult1 | TResult2> {
-    return this.execute().then(onfulfilled, onrejected);
-  }
-  public catch<TResult = never>(
-    onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null
-  ): Promise<void | TResult> {
-    return this.execute().catch(onrejected);
-  }
-  public finally(onfinally?: (() => void) | null): Promise<void> {
-    return this.execute().finally(onfinally);
-  }
 }

@@ -1,12 +1,12 @@
 import { QueryCommand, QueryCommandInput } from '@aws-sdk/lib-dynamodb';
-import { BetterDDB } from '../betterddb';
+import { BetterDDB, GSIConfig } from '../betterddb';
 
 export class QueryBuilder<T> {
   private filters: string[] = [];
   private expressionAttributeNames: Record<string, string> = {};
   private expressionAttributeValues: Record<string, any> = {};
-  private indexName?: string;
-  private sortKeyCondition?: string; // You can extend this to support a fluent sort builder.
+  private index?: GSIConfig<T>;
+  private sortKeyCondition?: string;
   private limit?: number;
   private lastKey?: Record<string, any>;
   private ascending: boolean = true;
@@ -14,7 +14,14 @@ export class QueryBuilder<T> {
   constructor(private parent: BetterDDB<T>, private key: Partial<T>) {}
 
   public usingIndex(indexName: string): this {
-    this.indexName = indexName;
+    if (!this.parent.getKeys().gsis) {
+      throw new Error('No global secondary indexes defined for this table');
+    }
+    if (!(indexName in this.parent.getKeys().gsis!)) {
+      throw new Error('index does not exist')
+    }
+    
+    this.index = this.parent.getKeys().gsis![indexName];
     return this;
   }
 
@@ -74,22 +81,22 @@ export class QueryBuilder<T> {
    * Executes the query and returns a Promise that resolves with an array of items.
    */
   public async execute(): Promise<T[]> {
-    // Build a simple key condition for the partition key.
     const keys = this.parent.getKeys();
-    const pkName = keys.primary.name;
+    let pkName = keys.primary.name;
+    let builtKey = this.parent.buildKey(this.key) as Record<string, any>;
+    if (this.index) {
+      pkName = this.index.primary.name;
+      builtKey = this.parent.buildIndexes(this.key);
+    }
     this.expressionAttributeNames['#pk'] = pkName;
 
-    // Cast the built key to a record so that we can index by string.
-    const builtKey = this.parent.buildKey(this.key) as Record<string, any>;
-    this.expressionAttributeValues[':pk_value'] = builtKey[pkName];
-
     let keyConditionExpression = `#pk = :pk_value`;
-    // If a sortKeyCondition was set via another fluent method, append it.
     if (this.sortKeyCondition) {
       keyConditionExpression += ` AND ${this.sortKeyCondition}`;
     }
 
-    // If any filters were added, set them as FilterExpression.
+    this.expressionAttributeValues[':pk_value'] = builtKey[pkName];
+
     const params: QueryCommandInput = {
       TableName: this.parent.getTableName(),
       KeyConditionExpression: keyConditionExpression,
@@ -98,7 +105,7 @@ export class QueryBuilder<T> {
       ScanIndexForward: this.ascending,
       Limit: this.limit,
       ExclusiveStartKey: this.lastKey,
-      IndexName: this.indexName
+      IndexName: this.index?.name ?? undefined
     };
 
     if (this.filters.length > 0) {
@@ -107,21 +114,5 @@ export class QueryBuilder<T> {
 
     const result = await this.parent.getClient().send(new QueryCommand(params));
     return this.parent.getSchema().array().parse(result.Items) as T[];
-  }
-
-  // Thenable implementation.
-  public then<TResult1 = T[], TResult2 = never>(
-    onfulfilled?: ((value: T[]) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null
-  ): Promise<TResult1 | TResult2> {
-    return this.execute().then(onfulfilled, onrejected);
-  }
-  public catch<TResult = never>(
-    onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null
-  ): Promise<T[] | TResult> {
-    return this.execute().catch(onrejected);
-  }
-  public finally(onfinally?: (() => void) | null): Promise<T[]> {
-    return this.execute().finally(onfinally);
   }
 }

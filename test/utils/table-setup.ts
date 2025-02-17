@@ -14,6 +14,15 @@ export const createTestTable = async (tableName: string, keySchema: CreateTableC
       KeySchema: keySchema,
       AttributeDefinitions: attributeDefinitions,
       BillingMode: 'PAY_PER_REQUEST',
+      GlobalSecondaryIndexes: [
+        {
+          IndexName: 'EmailIndex',
+          KeySchema: [{ AttributeName: 'email', KeyType: 'HASH' }],
+          Projection: {
+            ProjectionType: 'ALL',
+          },
+        },
+      ],
     });
   } catch (error: any) {
     if (error.code === 'ResourceInUseException') {

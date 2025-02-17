@@ -61,7 +61,7 @@ describe('BetterDDB - Scan Operation', () => {
   it('should scan items using ScanBuilder', async () => {
     const results = await userDdb.scan()
       .where('email', 'begins_with', 'char')
-      .limitResults(10);
+      .limitResults(10).execute();
     expect(results.length).toBeGreaterThanOrEqual(1);
     results.forEach(result => {
       expect(result.email).toMatch(/^char/i);

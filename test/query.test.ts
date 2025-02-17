@@ -48,7 +48,7 @@ const userDdb = new BetterDDB({
 
 beforeAll(async () => {
   await createTestTable(TEST_TABLE, KEY_SCHEMA, ATTRIBUTE_DEFINITIONS);
-  // Insert multiple items.
+
   const items = [
     { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
     { id: 'user-2', name: 'Alice B', email: 'alice@example.com' },
@@ -67,10 +67,21 @@ describe('BetterDDB - Query Operation', () => {
   it('should query items using QueryBuilder', async () => {
     const results = await userDdb.query({ id: 'user-1' })
       .where('name', 'begins_with', 'Alice')
-      .limitResults(5);
+      .limitResults(5).execute();
     expect(results.length).toBeGreaterThanOrEqual(1);
     results.forEach(result => {
       expect(result.name).toMatch(/^Alice/);
+    });
+  });
+
+  it('should query items using QueryBuilder with index', async () => {
+    const results = await userDdb.query({ email: 'alice@example.com' })
+      .usingIndex('EmailIndex')
+      .limitResults(1)
+      .execute();
+    expect(results.length).toEqual(1);
+    results.forEach(result => {
+      expect(result.email).toEqual('alice@example.com');
     });
   });
 });
