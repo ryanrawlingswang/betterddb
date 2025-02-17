@@ -1,6 +1,6 @@
 import { ScanCommand, ScanCommandInput } from '@aws-sdk/lib-dynamodb';
 import { BetterDDB } from '../betterddb';
-
+import { getOperatorExpression, Operator } from '../operator';
 export class ScanBuilder<T> {
   private filters: string[] = [];
   private expressionAttributeNames: Record<string, string> = {};
@@ -12,32 +12,35 @@ export class ScanBuilder<T> {
 
   public where(
     attribute: keyof T,
-    operator: 'eq' | 'begins_with' | 'between',
+    operator: Operator,
     values: any | [any, any]
   ): this {
     const attrStr = String(attribute);
     const nameKey = `#attr_${attrStr}`;
     this.expressionAttributeNames[nameKey] = attrStr;
 
-    if (operator === 'eq') {
-      const valueKey = `:val_${attrStr}`;
-      this.expressionAttributeValues[valueKey] = values;
-      this.filters.push(`${nameKey} = ${valueKey}`);
-    } else if (operator === 'begins_with') {
-      const valueKey = `:val_${attrStr}`;
-      this.expressionAttributeValues[valueKey] = values;
-      this.filters.push(`begins_with(${nameKey}, ${valueKey})`);
-    } else if (operator === 'between') {
+    if (operator === 'between') {
       if (!Array.isArray(values) || values.length !== 2) {
-        throw new Error(`For 'between' operator, values must be a tuple of two items`);
+        throw new Error(
+          `For 'between' operator, values must be a tuple of two items`
+        );
       }
       const valueKeyStart = `:val_start_${attrStr}`;
       const valueKeyEnd = `:val_end_${attrStr}`;
       this.expressionAttributeValues[valueKeyStart] = values[0];
       this.expressionAttributeValues[valueKeyEnd] = values[1];
-      this.filters.push(`${nameKey} BETWEEN ${valueKeyStart} AND ${valueKeyEnd}`);
+      this.filters.push(
+        `${nameKey} BETWEEN ${valueKeyStart} AND ${valueKeyEnd}`
+      );
+    } else if (operator === 'begins_with' || operator === 'contains') {
+      const valueKey = `:val_${attrStr}`;
+      this.expressionAttributeValues[valueKey] = values;
+      this.filters.push(`${operator}(${nameKey}, ${valueKey})`);
     } else {
-      throw new Error(`Unsupported operator: ${operator}`);
+      const valueKey = `:val_${attrStr}`;
+      this.expressionAttributeValues[valueKey] = values;
+      const condition = getOperatorExpression(operator, nameKey, valueKey);
+      this.filters.push(condition);
     }
     return this;
   }

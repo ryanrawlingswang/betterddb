@@ -1,6 +1,6 @@
 import { CreateTableCommandInput, DynamoDB } from '@aws-sdk/client-dynamodb';
 
-export const createTestTable = async (tableName: string, keySchema: CreateTableCommandInput['KeySchema'], attributeDefinitions: CreateTableCommandInput['AttributeDefinitions']) => {
+export const createTestTable = async (tableName: string, keySchema: CreateTableCommandInput['KeySchema'], attributeDefinitions: CreateTableCommandInput['AttributeDefinitions'], gsis: CreateTableCommandInput['GlobalSecondaryIndexes']) => {
   const dynamoDB = new DynamoDB({
     region: 'us-east-1',
     endpoint: 'http://localhost:4566',
@@ -14,15 +14,7 @@ export const createTestTable = async (tableName: string, keySchema: CreateTableC
       KeySchema: keySchema,
       AttributeDefinitions: attributeDefinitions,
       BillingMode: 'PAY_PER_REQUEST',
-      GlobalSecondaryIndexes: [
-        {
-          IndexName: 'EmailIndex',
-          KeySchema: [{ AttributeName: 'email', KeyType: 'HASH' }],
-          Projection: {
-            ProjectionType: 'ALL',
-          },
-        },
-      ],
+      GlobalSecondaryIndexes: gsis,
     });
   } catch (error: any) {
     if (error.code === 'ResourceInUseException') {
