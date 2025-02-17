@@ -3,25 +3,11 @@ import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 import { BatchGetItemInput } from '@aws-sdk/client-dynamodb';
 
 export class BatchGetBuilder<T> {
-  private projectionExpression?: string;
-  private expressionAttributeNames: Record<string, string> = {};
-
   /**
    * @param parent - The BetterDDB instance for the table.
    * @param keys - An array of partial keys for the items you wish to retrieve.
    */
   constructor(private parent: BetterDDB<T>, private keys: Partial<T>[]) {}
-
-  /**
-   * Specify a projection by providing an array of attribute names.
-   */
-  public withProjection(attributes: (keyof T)[]): this {
-    this.projectionExpression = attributes.map(attr => `#${String(attr)}`).join(', ');
-    for (const attr of attributes) {
-      this.expressionAttributeNames[`#${String(attr)}`] = String(attr);
-    }
-    return this;
-  }
 
   /**
    * Executes the batch get operation.
@@ -37,10 +23,6 @@ export class BatchGetBuilder<T> {
       RequestItems: {
         [tableName]: {
           Keys: keysArray,
-          ...(this.projectionExpression && {
-            ProjectionExpression: this.projectionExpression,
-            ExpressionAttributeNames: this.expressionAttributeNames,
-          }),
         },
       },
     };
