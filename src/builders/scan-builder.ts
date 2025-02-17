@@ -1,6 +1,8 @@
 import { ScanCommand, ScanCommandInput } from '@aws-sdk/lib-dynamodb';
 import { BetterDDB } from '../betterddb';
 import { getOperatorExpression, Operator } from '../operator';
+import { PaginatedResult } from '../types/paginated-result';
+
 export class ScanBuilder<T> {
   private filters: string[] = [];
   private expressionAttributeNames: Record<string, string> = {};
@@ -58,7 +60,7 @@ export class ScanBuilder<T> {
   /**
    * Executes the scan and returns a Promise that resolves with an array of items.
    */
-  public async execute(): Promise<T[]> {
+  public async execute(): Promise<PaginatedResult<T>> {
     const params: ScanCommandInput = {
       TableName: this.parent.getTableName(),
       ExpressionAttributeNames: this.expressionAttributeNames,
@@ -72,6 +74,7 @@ export class ScanBuilder<T> {
     }
 
     const result = await this.parent.getClient().send(new ScanCommand(params));
-    return this.parent.getSchema().array().parse(result.Items) as T[];
+
+    return {items: this.parent.getSchema().array().parse(result.Items) as T[], lastKey: result.LastEvaluatedKey ?? undefined};
   }
 }

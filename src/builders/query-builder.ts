@@ -1,6 +1,8 @@
 import { QueryCommand, QueryCommandInput } from '@aws-sdk/lib-dynamodb';
 import { BetterDDB, GSIConfig } from '../betterddb';
 import { getOperatorExpression, Operator } from '../operator';
+import { PaginatedResult } from '../types/paginated-result';
+
 export class QueryBuilder<T> {
   private keyConditions: string[] = [];
   private filterConditions: string[] = [];
@@ -133,7 +135,7 @@ export class QueryBuilder<T> {
   /**
    * Executes the query and returns a Promise that resolves with an array of items.
    */
-  public async execute(): Promise<T[]> {
+  public async execute(): Promise<PaginatedResult<T>> {
     const keys = this.parent.getKeys();
     let pkName = keys.primary.name;
     let builtKey = this.parent.buildKey(this.key) as Record<string, any>;
@@ -160,11 +162,12 @@ export class QueryBuilder<T> {
       IndexName: this.index?.name ?? undefined,
     };
 
-    if (this.filterConditions.length > 0) {
-      params.FilterExpression = this.filterConditions.join(' AND ');
-    }
-    console.log(params);
+    this.filterConditions.push(`#entity = :entity_value`);
+    this.expressionAttributeNames['#entity'] = 'entityType';
+    this.expressionAttributeValues[':entity_value'] = this.parent.getEntityType();
+    params.FilterExpression = this.filterConditions.join(' AND ');
+
     const result = await this.parent.getClient().send(new QueryCommand(params));
-    return this.parent.getSchema().array().parse(result.Items) as T[];
+    return {items: this.parent.getSchema().array().parse(result.Items) as T[], lastKey: result.LastEvaluatedKey ?? undefined};
   }
 }

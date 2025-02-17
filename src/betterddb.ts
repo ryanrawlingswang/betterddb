@@ -72,7 +72,7 @@ export interface KeysConfig<T> {
 export interface BetterDDBOptions<T> {
   schema: z.ZodType<T, z.ZodTypeDef, any>;
   tableName: string;
-  entityName: string;
+  entityType: string;
   keys: KeysConfig<T>;
   client: DynamoDBDocumentClient;
   /**
@@ -82,7 +82,7 @@ export interface BetterDDBOptions<T> {
    *
    * (T should include these fields if enabled.)
    */
-  autoTimestamps?: boolean;
+  timestamps?: boolean;
 }
 
 /**
@@ -91,18 +91,18 @@ export interface BetterDDBOptions<T> {
 export class BetterDDB<T> {
   protected schema: z.ZodType<T, z.ZodTypeDef, any>;
   protected tableName: string;
-  protected entityName: string;
+  protected entityType: string;
   protected client: DynamoDBDocumentClient;
   protected keys: KeysConfig<T>;
-  protected autoTimestamps: boolean;
+  protected timestamps: boolean;
 
   constructor(options: BetterDDBOptions<T>) {
     this.schema = options.schema;
     this.tableName = options.tableName;
-    this.entityName = options.entityName.toUpperCase();
+    this.entityType = options.entityType.toUpperCase();
     this.keys = options.keys;
     this.client = options.client;
-    this.autoTimestamps = options.autoTimestamps ?? false;
+    this.timestamps = options.timestamps ?? false;
   }
 
   public getKeys(): KeysConfig<T> {
@@ -122,8 +122,12 @@ export class BetterDDB<T> {
     return this.schema;
   }
 
-  public getAutoTimestamps(): boolean {
-    return this.autoTimestamps;
+  public getTimestamps(): boolean {
+    return this.timestamps;
+  }
+
+  public getEntityType(): string {
+    return this.entityType;
   }
 
   // Helper: Retrieve the key value from a KeyDefinition.

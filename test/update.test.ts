@@ -7,7 +7,7 @@ import { KeySchemaElement, AttributeDefinition } from '@aws-sdk/client-dynamodb'
 const TEST_TABLE = "update-test-table";
 const ENDPOINT = 'http://localhost:4566';
 const REGION = 'us-east-1';
-const ENTITY_NAME = 'USER';
+const ENTITY_TYPE = 'USER';
 const PRIMARY_KEY = 'pk';
 const PRIMARY_KEY_TYPE = 'S';
 const SORT_KEY = 'sk';
@@ -44,9 +44,6 @@ const UserSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().email(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  version: z.number().optional(),
 });
 
 type User = z.infer<typeof UserSchema>;
@@ -54,13 +51,13 @@ type User = z.infer<typeof UserSchema>;
 const userDdb = new BetterDDB({
   schema: UserSchema,
   tableName: TEST_TABLE,
-  entityName: ENTITY_NAME,
+  entityType: ENTITY_TYPE,
   keys: {
     primary: { name: PRIMARY_KEY, definition: { build: (raw) => raw.id! } },
     sort: { name: SORT_KEY, definition: { build: (raw) => raw.email! } },
   },
   client,
-  autoTimestamps: true,
+  timestamps: true,
 });
 
 beforeAll(async () => {

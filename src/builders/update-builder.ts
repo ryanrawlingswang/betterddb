@@ -13,14 +13,11 @@ interface UpdateActions<T> {
 export class UpdateBuilder<T> {
   private actions: UpdateActions<T> = {};
   private condition?: { expression: string; attributeValues: Record<string, any> };
-  private expectedVersion?: number;
   // When using transaction mode, we store extra transaction items.
   private extraTransactItems: TransactWriteItem[] = [];
 
   // Reference to the parent BetterDDB instance and key.
-  constructor(private parent: BetterDDB<T>, private key: Partial<T>, expectedVersion?: number) {
-    this.expectedVersion = expectedVersion;
-  }
+  constructor(private parent: BetterDDB<T>, private key: Partial<T>) {}
 
   // Chainable methods:
   public set(attrs: Partial<T>): this {
@@ -133,29 +130,6 @@ export class UpdateBuilder<T> {
       }
       if (deleteParts.length > 0) {
         clauses.push(`DELETE ${deleteParts.join(', ')}`);
-      }
-    }
-
-    // Incorporate expectedVersion if provided.
-    if (this.expectedVersion !== undefined) {
-      ExpressionAttributeNames['#version'] = 'version';
-      ExpressionAttributeValues[':expectedVersion'] = this.expectedVersion;
-      ExpressionAttributeValues[':newVersion'] = this.expectedVersion + 1;
-
-      // Append version update in SET clause.
-      const versionClause = '#version = :newVersion';
-      const setIndex = clauses.findIndex(clause => clause.startsWith('SET '));
-      if (setIndex >= 0) {
-        clauses[setIndex] += `, ${versionClause}`;
-      } else {
-        clauses.push(`SET ${versionClause}`);
-      }
-
-      // Ensure condition expression includes version check.
-      if (this.condition && this.condition.expression) {
-        this.condition.expression += ` AND #version = :expectedVersion`;
-      } else {
-        this.condition = { expression: '#version = :expectedVersion', attributeValues: {} };
       }
     }
 

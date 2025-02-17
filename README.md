@@ -61,8 +61,8 @@ const userDdb = new BetterDDB({
     }
   },
   client,
-  autoTimestamps: true,
-  entityName: 'USER'
+  timestamps: true,
+  entityType: 'USER'
 });
 
 (async () => {

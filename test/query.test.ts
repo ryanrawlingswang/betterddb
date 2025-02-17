@@ -7,7 +7,7 @@ import { createTestTable, deleteTestTable } from './utils/table-setup';
 const TEST_TABLE = "query-test-table";
 const ENDPOINT = 'http://localhost:4566';
 const REGION = 'us-east-1';
-const ENTITY_NAME = 'USER';
+const ENTITY_TYPE = 'USER';
 const PRIMARY_KEY = 'pk';
 const PRIMARY_KEY_TYPE = 'S';
 const SORT_KEY = 'sk';
@@ -45,8 +45,6 @@ const UserSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().email(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
 });
 
 type User = z.infer<typeof UserSchema>;
@@ -54,7 +52,7 @@ type User = z.infer<typeof UserSchema>;
 const userDdb = new BetterDDB({
   schema: UserSchema,
   tableName: TEST_TABLE,
-  entityName: ENTITY_NAME,
+  entityType: ENTITY_TYPE,
   keys: {
     primary: { 
       name: PRIMARY_KEY, 
@@ -79,7 +77,7 @@ const userDdb = new BetterDDB({
     }
   },
   client,
-  autoTimestamps: true,
+  timestamps: true,
 });
 
 beforeAll(async () => {
@@ -103,8 +101,8 @@ describe('BetterDDB - Query Operation', () => {
       .filter('name', 'begins_with', 'Alice')
       .limitResults(5)
       .execute();
-    expect(results.length).toBeGreaterThanOrEqual(1);
-    results.forEach(result => {
+    expect(results.items.length).toBeGreaterThanOrEqual(1);
+    results.items.forEach(result => {
       expect(result.name).toMatch(/^Alice/);
     });
   });
@@ -114,8 +112,8 @@ describe('BetterDDB - Query Operation', () => {
       .usingIndex('EmailIndex')
       .limitResults(1)
       .execute();
-    expect(results.length).toEqual(1);
-    results.forEach(result => {
+    expect(results.items.length).toEqual(1);
+    results.items.forEach(result => {
       expect(result.email).toEqual('alice@example.com');
     });
   });
@@ -125,8 +123,8 @@ describe('BetterDDB - Query Operation', () => {
     const results = await userDdb.query({ id: 'user-1' })
       .where('begins_with', { email: 'alice' })
       .execute();
-    expect(results.length).toBeGreaterThanOrEqual(1);
-    results.forEach(result => {
+    expect(results.items.length).toBeGreaterThanOrEqual(1);
+    results.items.forEach(result => {
       expect(result.email).toMatch(/^alice/i);
     });
   });
@@ -135,7 +133,7 @@ describe('BetterDDB - Query Operation', () => {
     const results = await userDdb.query({ id: 'user-1' })
       .where('begins_with', { email: 'bob' })
       .execute();
-    expect(results.length).toEqual(0);
+    expect(results.items.length).toEqual(0);
   });
 
   it('should query items using QueryBuilder with index and additional filter', async () => {
@@ -143,8 +141,8 @@ describe('BetterDDB - Query Operation', () => {
       .usingIndex('EmailIndex')
       .filter('name', 'begins_with', 'Alice')
       .execute();
-    expect(results.length).toBeGreaterThanOrEqual(1);
-    results.forEach(result => {
+    expect(results.items.length).toBeGreaterThanOrEqual(1);
+    results.items.forEach(result => {
       expect(result.email).toEqual('alice@example.com');
       expect(result.name).toMatch(/^Alice/);
     });
@@ -160,8 +158,8 @@ describe('BetterDDB - Query Operation', () => {
         { email: 'alice@example.com' } // Upper bound -> built to "USER#alice@example.com"
       ])
       .execute();
-    expect(results.length).toBeGreaterThanOrEqual(1);
-    results.forEach(result => {
+    expect(results.items.length).toBeGreaterThanOrEqual(1);
+    results.items.forEach(result => {
       // The built sort key for user-1 is "USER#alice@example.com"
       expect(result.email).toMatch(/alice@example\.com/i);
     });
@@ -175,8 +173,8 @@ describe('BetterDDB - Query Operation', () => {
       .filter('name', 'begins_with', 'Alice')
       .filter('name', 'contains', 'B')
       .execute();
-    expect(results.length).toEqual(1);
-    results.forEach(result => {
+    expect(results.items.length).toEqual(1);
+    results.items.forEach(result => {
       expect(result.name).toMatch(/^Alice/);
       expect(result.name).toContain('B');
     });

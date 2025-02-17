@@ -8,7 +8,7 @@ import { KeySchemaElement, AttributeDefinition } from '@aws-sdk/client-dynamodb'
 const TEST_TABLE = "create-test-table";
 const ENDPOINT = 'http://localhost:4566';
 const REGION = 'us-east-1';
-const ENTITY_NAME = 'USER';
+const ENTITY_TYPE = 'USER';
 const PRIMARY_KEY = 'pk';
 const PRIMARY_KEY_TYPE = 'S';
 const SORT_KEY = 'sk';
@@ -44,8 +44,6 @@ const UserSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().email(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
 });
 
 type User = z.infer<typeof UserSchema>;
@@ -53,14 +51,14 @@ type User = z.infer<typeof UserSchema>;
 const userDdb = new BetterDDB({
   schema: UserSchema,
   tableName: TEST_TABLE,
-  entityName: ENTITY_NAME,
+  entityType: ENTITY_TYPE,
   keys: {
     primary: { name: "pk", definition: { build: (raw) => `USER#${raw.id}` } },
     sort: { name: "sk", definition: { build: (raw) => `EMAIL#${raw.email}` } },
     gsis: { gsi1: { name: 'gsi1', primary: { name: "gsi1pk", definition: { build: (raw) => "NAME" } }, sort: { name: "gsi1sk", definition: { build: (raw) => `NAME#${raw.name}` } } } },
   },
   client,
-  autoTimestamps: true,
+  timestamps: true,
 });
 
 beforeAll(async () => {

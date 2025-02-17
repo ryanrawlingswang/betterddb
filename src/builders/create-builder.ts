@@ -9,6 +9,7 @@ export class CreateBuilder<T> {
   constructor(private parent: BetterDDB<T>, private item: T) {}
 
   public async execute(): Promise<T> {
+    const validated = this.parent.getSchema().parse(this.item);
     if (this.extraTransactItems.length > 0) {
       // Build our update transaction item.
       const myTransactItem = this.toTransactPut();
@@ -24,14 +25,12 @@ export class CreateBuilder<T> {
       }
       return result;
     } else {
-    let item = this.item;
-    if (this.parent.getAutoTimestamps()) {
+
+    let finalItem: T = { ...this.item , entityType: this.parent.getEntityType() };
+    if (this.parent.getTimestamps()) {
       const now = new Date().toISOString();
-      item = { ...item, createdAt: now, updatedAt: now } as T;
+      finalItem = { ...finalItem, createdAt: now, updatedAt: now } as T;
     }
-    // Validate the item using the schema.
-    const validated = this.parent.getSchema().parse(item);
-    let finalItem = { ...validated };
 
     // Compute and merge primary key.
     const computedKeys = this.parent.buildKey(validated as Partial<T>);
