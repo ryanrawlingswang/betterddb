@@ -78,4 +78,20 @@ describe('BetterDDB - Get Operation', () => {
     expect(users.some(user => user.id === 'user-123')).toBe(true);
     expect(users.some(user => user.id === 'user-124')).toBe(true);
   });
+
+  it('should retrieve an item using GetBuilder that does not exist', async () => {
+    const users = await userDdb.batchGet([{ id: 'user-123', email: 'jane@example.com' }]).execute();
+    expect(users.length).toEqual(0);
+  });
+
+  it('should return an empty array if no keys are provided', async () => {
+    const users = await userDdb.batchGet([]).execute();
+    expect(users.length).toEqual(0);
+  });
+
+  it('should deduplicate keys', async () => {
+    const users = await userDdb.batchGet([{ id: 'user-123', email: 'john@example.com' }, { id: 'user-123', email: 'john@example.com' }]).execute();
+    expect(users.length).toEqual(1);
+    expect(users[0].id).toEqual('user-123');
+  });
 });

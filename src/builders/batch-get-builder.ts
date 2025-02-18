@@ -14,9 +14,22 @@ export class BatchGetBuilder<T> {
    * Returns an array of parsed items of type T.
    */
   public async execute(): Promise<T[]> {
+    if (this.keys.length === 0) {
+      return [];
+    }
+
+    const seen = new Set();
+    const deduplicatedKeys = this.keys.filter((key) => {
+      const keyString = JSON.stringify(key);
+      if (seen.has(keyString)) {
+        return false;
+      }
+      seen.add(keyString);
+      return true;
+    });
     const tableName = this.parent.getTableName();
     // Build an array of keys using the parent's key builder.
-    const keysArray = this.keys.map(key => this.parent.buildKey(key));
+    const keysArray = deduplicatedKeys.map(key => this.parent.buildKey(key));
 
     // Construct the BatchGet parameters.
     const params: BatchGetItemInput = {
