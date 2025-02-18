@@ -77,4 +77,9 @@ describe('BetterDDB - Get Operation', () => {
     expect(user).not.toBeNull();
     expect(user?.id).toBe('user-123');
   });
+
+  it('should retrieve an item using GetBuilder that does not exist', async () => {
+    const user = await userDdb.get({ id: 'user-123', email: 'jane@example.com' }).execute();
+    expect(user).toBeNull();
+  });
 });
