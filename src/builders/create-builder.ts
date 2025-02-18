@@ -59,9 +59,23 @@ export class CreateBuilder<T> {
   }
 
   public toTransactPut(): TransactWriteItem{
+    const validated = this.parent.getSchema().parse(this.item);
+    let finalItem: T = { ...this.item , entityType: this.parent.getEntityType() };
+    if (this.parent.getTimestamps()) {
+      const now = new Date().toISOString();
+      finalItem = { ...finalItem, createdAt: now, updatedAt: now } as T;
+    }
+
+    // Compute and merge primary key.
+    const computedKeys = this.parent.buildKey(validated as Partial<T>);
+    finalItem = { ...finalItem, ...computedKeys };
+
+    // Compute and merge index attributes.
+    const indexAttributes = this.parent.buildIndexes(validated as Partial<T>);
+    finalItem = { ...finalItem, ...indexAttributes };
     const putItem: Put = {
       TableName: this.parent.getTableName(),
-      Item: this.item as Record<string, AttributeValue>,
+      Item: finalItem as Record<string, AttributeValue>,
     };
     return { Put: putItem };
   }
