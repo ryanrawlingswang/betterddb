@@ -1,6 +1,6 @@
 {
   "name": "betterddb",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "A definition-based DynamoDB wrapper library that provides a schema-driven and fully typesafe DAL.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
