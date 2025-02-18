@@ -168,7 +168,6 @@ export class QueryBuilder<T> {
     this.expressionAttributeValues[':entity_value'] = this.parent.getEntityType();
     params.FilterExpression = this.filterConditions.join(' AND ');
 
-    console.log(params);
     const result = await this.parent.getClient().send(new QueryCommand(params));
     return {items: this.parent.getSchema().array().parse(result.Items) as T[], lastKey: result.LastEvaluatedKey ?? undefined};
   }
