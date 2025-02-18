@@ -179,4 +179,14 @@ describe('BetterDDB - Query Operation', () => {
       expect(result.name).toContain('B');
     });
   });
+
+  it('should query items using QueryBuilder with where clause on an index', async () => {
+    // Query the GSI for email "alice@example.com". Two items match.
+    // Then apply two filter conditions: name begins_with "Alice" and name contains "B" should only match one.
+    const results = await userDdb.query({ email: 'alice@example.com' })
+      .usingIndex('EmailIndex')
+      .where('begins_with', { email: 'alice' })
+      .execute();
+    expect(results.items.length).toEqual(2);
+  });
 });
