@@ -13,7 +13,14 @@ export class QueryBuilder<T> {
   private lastKey?: Record<string, any>;
   private ascending: boolean = true;
 
-  constructor(private parent: BetterDDB<T>, private key: Partial<T>, ) {}
+  constructor(private parent: BetterDDB<T>, private key: Partial<T>, ) {
+    const keys = this.parent.getKeys();
+    let pkName = keys.primary.name;
+    let builtKey = this.parent.buildKey(this.key) as Record<string, any>;
+  
+    this.expressionAttributeNames['#pk'] = pkName;
+    this.expressionAttributeValues[':pk_value'] = builtKey[pkName];
+  }
 
   public usingIndex(indexName: string): this {
     if (!this.parent.getKeys().gsis) {
@@ -24,6 +31,12 @@ export class QueryBuilder<T> {
     }
     
     this.index = this.parent.getKeys().gsis![indexName];
+
+    const pkName = this.index.primary.name;
+    const builtKey = this.parent.buildIndexes(this.key);
+    this.expressionAttributeNames['#pk'] = pkName;
+    this.expressionAttributeValues[':pk_value'] = builtKey[pkName];
+
     return this;
   }
 
@@ -136,19 +149,7 @@ export class QueryBuilder<T> {
    * Executes the query and returns a Promise that resolves with an array of items.
    */
   public async execute(): Promise<PaginatedResult<T>> {
-    const keys = this.parent.getKeys();
-    let pkName = keys.primary.name;
-    let builtKey = this.parent.buildKey(this.key) as Record<string, any>;
-    if (this.index) {
-      pkName = this.index.primary.name;
-      builtKey = this.parent.buildIndexes(this.key);
-    }
-    if (!this.expressionAttributeNames['#pk']) {
-      this.expressionAttributeNames['#pk'] = pkName;
-      this.expressionAttributeValues[':pk_value'] = builtKey[pkName];
-      this.keyConditions.unshift(`#pk = :pk_value`);
-    }
-
+    this.keyConditions.unshift(`#pk = :pk_value`);
     const keyConditionExpression = this.keyConditions.join(' AND ');
 
     const params: QueryCommandInput = {
@@ -167,6 +168,7 @@ export class QueryBuilder<T> {
     this.expressionAttributeValues[':entity_value'] = this.parent.getEntityType();
     params.FilterExpression = this.filterConditions.join(' AND ');
 
+    console.log(params);
     const result = await this.parent.getClient().send(new QueryCommand(params));
     return {items: this.parent.getSchema().array().parse(result.Items) as T[], lastKey: result.LastEvaluatedKey ?? undefined};
   }
