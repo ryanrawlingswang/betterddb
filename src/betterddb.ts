@@ -1,4 +1,4 @@
-import { z, ZodSchema } from 'zod';
+import { z } from 'zod';
 import { QueryBuilder } from './builders/query-builder';
 import { ScanBuilder } from './builders/scan-builder';
 import { UpdateBuilder } from './builders/update-builder';
@@ -72,7 +72,7 @@ export interface KeysConfig<T> {
 export interface BetterDDBOptions<T> {
   schema: z.ZodType<T, z.ZodTypeDef, any>;
   tableName: string;
-  entityType: string;
+  entityType?: string;
   keys: KeysConfig<T>;
   client: DynamoDBDocumentClient;
   /**
@@ -91,7 +91,7 @@ export interface BetterDDBOptions<T> {
 export class BetterDDB<T> {
   protected schema: z.ZodType<T, z.ZodTypeDef, any>;
   protected tableName: string;
-  protected entityType: string;
+  protected entityType?: string;
   protected client: DynamoDBDocumentClient;
   protected keys: KeysConfig<T>;
   protected timestamps: boolean;
@@ -99,7 +99,7 @@ export class BetterDDB<T> {
   constructor(options: BetterDDBOptions<T>) {
     this.schema = options.schema;
     this.tableName = options.tableName;
-    this.entityType = options.entityType.toUpperCase();
+    this.entityType = options.entityType?.toUpperCase();
     this.keys = options.keys;
     this.client = options.client;
     this.timestamps = options.timestamps ?? false;
@@ -126,7 +126,7 @@ export class BetterDDB<T> {
     return this.timestamps;
   }
 
-  public getEntityType(): string {
+  public getEntityType(): string | undefined {
     return this.entityType;
   }
 

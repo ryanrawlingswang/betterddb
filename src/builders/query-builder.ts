@@ -163,9 +163,11 @@ export class QueryBuilder<T> {
       IndexName: this.index?.name ?? undefined,
     };
 
-    this.filterConditions.push(`#entity = :entity_value`);
-    this.expressionAttributeNames['#entity'] = 'entityType';
-    this.expressionAttributeValues[':entity_value'] = this.parent.getEntityType();
+    if (this.parent.getEntityType()) {
+      this.filterConditions.push(`#entity = :entity_value`);
+      this.expressionAttributeNames['#entity'] = 'entityType';
+      this.expressionAttributeValues[':entity_value'] = this.parent.getEntityType();
+    }
     params.FilterExpression = this.filterConditions.join(' AND ');
 
     const result = await this.parent.getClient().send(new QueryCommand(params));

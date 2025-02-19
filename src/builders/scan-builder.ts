@@ -69,9 +69,11 @@ export class ScanBuilder<T> {
       ExclusiveStartKey: this.lastKey
     };
 
-    this.filters.push(`#entity = :entity_value`);
-    this.expressionAttributeNames['#entity'] = 'entityType';
-    this.expressionAttributeValues[':entity_value'] = this.parent.getEntityType();
+    if (this.parent.getEntityType()) {
+      this.filters.push(`#entity = :entity_value`);
+      this.expressionAttributeNames['#entity'] = 'entityType';
+      this.expressionAttributeValues[':entity_value'] = this.parent.getEntityType();
+    }
     params.FilterExpression = this.filters.join(' AND ');
 
     const result = await this.parent.getClient().send(new ScanCommand(params));
