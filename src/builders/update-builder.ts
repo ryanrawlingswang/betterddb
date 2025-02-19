@@ -3,6 +3,7 @@
 import { TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { BetterDDB } from '../betterddb';
 import { TransactWriteItem, Update, UpdateItemInput } from '@aws-sdk/client-dynamodb';
+import { z } from 'zod';
 interface UpdateActions<T> {
   set?: Partial<T>;
   remove?: (keyof T)[];
@@ -21,7 +22,9 @@ export class UpdateBuilder<T> {
 
   // Chainable methods:
   public set(attrs: Partial<T>): this {
-    this.actions.set = { ...this.actions.set, ...attrs };
+    const partialSchema = (this.parent.getSchema() as unknown as z.ZodObject<any>).partial();
+    const validated = partialSchema.parse(attrs);
+    this.actions.set = { ...this.actions.set, ...validated };
     return this;
   }
 
@@ -31,7 +34,9 @@ export class UpdateBuilder<T> {
   }
 
   public add(attrs: Partial<Record<keyof T, number | Set<any>>>): this {
-    this.actions.add = { ...this.actions.add, ...attrs };
+    const partialSchema = (this.parent.getSchema() as unknown as z.ZodObject<any>).partial();
+    const validated = partialSchema.parse(attrs);
+    this.actions.add = { ...this.actions.add, ...validated };
     return this;
   }
 
