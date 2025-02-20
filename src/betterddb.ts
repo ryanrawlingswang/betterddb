@@ -8,6 +8,7 @@ import { DeleteBuilder } from './builders/delete-builder';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { BatchGetBuilder } from './builders/batch-get-builder';
 import { ListBuilder } from './builders/list-builder';
+import { CountBuilder } from './builders/count-builder';
 export type PrimaryKeyValue = string | number;
 
 /**
@@ -256,6 +257,13 @@ export class BetterDDB<T> {
    */
   public list(key: Partial<T>): ListBuilder<T> {
     return new ListBuilder<T>(this, key);
+  }
+
+  /**
+   * Count items.
+   */
+  public count(): CountBuilder<T> {
+    return new CountBuilder<T>(this);
   }
 
   /**
