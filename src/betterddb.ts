@@ -7,7 +7,7 @@ import { GetBuilder } from './builders/get-builder';
 import { DeleteBuilder } from './builders/delete-builder';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { BatchGetBuilder } from './builders/batch-get-builder';
-
+import { ListBuilder } from './builders/list-builder';
 export type PrimaryKeyValue = string | number;
 
 /**
@@ -243,6 +243,13 @@ export class BetterDDB<T> {
    */
   public query(key: Partial<T>): QueryBuilder<T> {
     return new QueryBuilder<T>(this, key);
+  }
+
+  /**
+   * List items.
+   */
+  public list(key: Partial<T>): ListBuilder<T> {
+    return new ListBuilder<T>(this, key);
   }
 
   /**
