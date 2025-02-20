@@ -75,6 +75,7 @@ export interface BetterDDBOptions<T> {
   entityType?: string;
   keys: KeysConfig<T>;
   client: DynamoDBDocumentClient;
+  counter?: boolean;
   /**
    * If true, automatically inject timestamp fields:
    * - On create, sets both `createdAt` and `updatedAt`
@@ -95,6 +96,7 @@ export class BetterDDB<T> {
   protected client: DynamoDBDocumentClient;
   protected keys: KeysConfig<T>;
   protected timestamps: boolean;
+  protected counter: boolean;
 
   constructor(options: BetterDDBOptions<T>) {
     this.schema = options.schema;
@@ -103,6 +105,11 @@ export class BetterDDB<T> {
     this.keys = options.keys;
     this.client = options.client;
     this.timestamps = options.timestamps ?? false;
+    this.counter = options.counter ?? false;
+  }
+
+  public getCounter(): boolean {
+    return this.counter;
   }
 
   public getKeys(): KeysConfig<T> {
@@ -116,7 +123,6 @@ export class BetterDDB<T> {
   public getClient(): DynamoDBDocumentClient {
     return this.client;
   }
-  
   
   public getSchema(): z.ZodType<T, z.ZodTypeDef, any> {
     return this.schema;
