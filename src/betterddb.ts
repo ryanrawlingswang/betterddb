@@ -1,11 +1,11 @@
-import { z } from "zod";
+import { type z } from "zod";
 import { QueryBuilder } from "./builders/query-builder";
 import { ScanBuilder } from "./builders/scan-builder";
 import { UpdateBuilder } from "./builders/update-builder";
 import { CreateBuilder } from "./builders/create-builder";
 import { GetBuilder } from "./builders/get-builder";
 import { DeleteBuilder } from "./builders/delete-builder";
-import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { type NativeAttributeValue, type DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { BatchGetBuilder } from "./builders/batch-get-builder";
 export type PrimaryKeyValue = string | number;
 
@@ -60,16 +60,14 @@ export interface GSIConfig<T> {
 export interface KeysConfig<T> {
   primary: PrimaryKeyConfig<T>;
   sort?: SortKeyConfig<T>;
-  gsis?: {
-    [gsiName: string]: GSIConfig<T>;
-  };
+  gsis?: Record<string, GSIConfig<T>>;
 }
 
 /**
  * Options for initializing BetterDDB.
  */
 export interface BetterDDBOptions<T> {
-  schema: z.ZodType<T, z.ZodTypeDef, any>;
+  schema: z.AnyZodObject
   tableName: string;
   entityType?: string;
   keys: KeysConfig<T>;
@@ -89,7 +87,7 @@ export interface BetterDDBOptions<T> {
  * BetterDDB is a definition-based DynamoDB wrapper library.
  */
 export class BetterDDB<T> {
-  protected schema: z.ZodType<T, z.ZodTypeDef, any>;
+  protected schema: z.AnyZodObject
   protected tableName: string;
   protected entityType?: string;
   protected client: DynamoDBDocumentClient;
@@ -123,7 +121,7 @@ export class BetterDDB<T> {
     return this.client;
   }
 
-  public getSchema(): z.ZodType<T, z.ZodTypeDef, any> {
+  public getSchema(): z.AnyZodObject {
     return this.schema;
   }
 
@@ -151,8 +149,8 @@ export class BetterDDB<T> {
   /**
    * Build the primary key from a raw key object.
    */
-  public buildKey(rawKey: Partial<T>): Record<string, any> {
-    const keyObj: Record<string, any> = {};
+  public buildKey(rawKey: Partial<T>): Record<string, NativeAttributeValue> {
+    const keyObj: Record<string, NativeAttributeValue> = {};
 
     // For primary (partition) key:
     const pkConfig = this.keys.primary;
@@ -160,7 +158,7 @@ export class BetterDDB<T> {
       typeof pkConfig.definition === "string" ||
       typeof pkConfig.definition === "number" ||
       typeof pkConfig.definition === "symbol"
-        ? String((rawKey as any)[pkConfig.definition])
+        ? String((rawKey)[pkConfig.definition])
         : pkConfig.definition.build(rawKey);
 
     // For sort key, if defined:
@@ -170,7 +168,7 @@ export class BetterDDB<T> {
         typeof skConfig.definition === "string" ||
         typeof skConfig.definition === "number" ||
         typeof skConfig.definition === "symbol"
-          ? String((rawKey as any)[skConfig.definition])
+          ? String((rawKey)[skConfig.definition])
           : skConfig.definition.build(rawKey);
     }
     return keyObj;
@@ -179,19 +177,19 @@ export class BetterDDB<T> {
   /**
    * Build index attributes for each defined GSI.
    */
-  public buildIndexes(rawItem: Partial<T>): Record<string, any> {
-    const indexAttributes: Record<string, any> = {};
+  public buildIndexes(rawItem: Partial<T>): Record<string, NativeAttributeValue> {
+    const indexAttributes: Record<string, NativeAttributeValue> = {};
     if (this.keys.gsis) {
       for (const gsiName in this.keys.gsis) {
         const gsiConfig = this.keys.gsis[gsiName];
 
         // Compute primary index attribute.
-        const primaryConfig = gsiConfig!.primary;
+        const primaryConfig = gsiConfig.primary;
         indexAttributes[primaryConfig.name] =
           typeof primaryConfig.definition === "string" ||
           typeof primaryConfig.definition === "number" ||
           typeof primaryConfig.definition === "symbol"
-            ? String((rawItem as any)[primaryConfig.definition])
+            ? String((rawItem)[primaryConfig.definition])
             : primaryConfig.definition.build(rawItem);
 
         // Compute sort index attribute if provided.
@@ -201,7 +199,7 @@ export class BetterDDB<T> {
             typeof sortConfig.definition === "string" ||
             typeof sortConfig.definition === "number" ||
             typeof sortConfig.definition === "symbol"
-              ? String((rawItem as any)[sortConfig.definition])
+              ? String((rawItem)[sortConfig.definition])
               : sortConfig.definition.build(rawItem);
         }
       }

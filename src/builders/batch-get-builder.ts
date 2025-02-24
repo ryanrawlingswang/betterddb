@@ -1,6 +1,6 @@
-import { BetterDDB } from "../betterddb";
+import { type BetterDDB } from "../betterddb";
 import { BatchGetCommand } from "@aws-sdk/lib-dynamodb";
-import { BatchGetItemInput } from "@aws-sdk/client-dynamodb";
+import { type BatchGetItemInput } from "@aws-sdk/client-dynamodb";
 
 export class BatchGetBuilder<T> {
   /**

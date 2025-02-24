@@ -1,28 +1,32 @@
-import { QueryCommand, QueryCommandInput } from "@aws-sdk/lib-dynamodb";
-import { BetterDDB, GSIConfig } from "../betterddb";
-import { getOperatorExpression, Operator } from "../operator";
-import { PaginatedResult } from "../types/paginated-result";
+import { type NativeAttributeValue, QueryCommand, type QueryCommandInput } from "@aws-sdk/lib-dynamodb";
+import { type BetterDDB, type GSIConfig } from "../betterddb";
+import { getOperatorExpression, type Operator } from "../operator";
+import { type PaginatedResult } from "../types/paginated-result";
 
 export class QueryBuilder<T> {
   private keyConditions: string[] = [];
   private filterConditions: string[] = [];
   private expressionAttributeNames: Record<string, string> = {};
-  private expressionAttributeValues: Record<string, any> = {};
+  private expressionAttributeValues: Record<string, NativeAttributeValue>;
   private index?: GSIConfig<T>;
   private limit?: number;
-  private lastKey?: Record<string, any>;
-  private ascending: boolean = true;
+  private lastKey?: Record<string, NativeAttributeValue>;
+  private ascending = true;
 
   constructor(
     private parent: BetterDDB<T>,
     private key: Partial<T>,
   ) {
     const keys = this.parent.getKeys();
-    let pkName = keys.primary.name;
-    let builtKey = this.parent.buildKey(this.key) as Record<string, any>;
+    const pkName = keys.primary.name;
+    const builtKey = this.parent.buildKey(this.key);
 
-    this.expressionAttributeNames["#pk"] = pkName;
-    this.expressionAttributeValues[":pk_value"] = builtKey[pkName];
+    this.expressionAttributeNames = {
+      "#pk": pkName,
+    }
+    this.expressionAttributeValues = {
+      ":pk_value": builtKey[pkName] as Record<string, NativeAttributeValue>,
+    }
   }
 
   public usingIndex(indexName: string): this {
@@ -35,10 +39,10 @@ export class QueryBuilder<T> {
 
     this.index = this.parent.getKeys().gsis![indexName];
 
-    const pkName = this.index!.primary.name;
+    const pkName = this.index.primary.name;
     const builtKey = this.parent.buildIndexes(this.key);
     this.expressionAttributeNames["#pk"] = pkName;
-    this.expressionAttributeValues[":pk_value"] = builtKey[pkName];
+    this.expressionAttributeValues[":pk_value"] = builtKey[pkName] as Record<string, NativeAttributeValue>;
 
     return this;
   }
@@ -83,26 +87,26 @@ export class QueryBuilder<T> {
       const valueKeyEnd = ":sk_end";
       // Use the key definition's build function to build the key from the full object.
       this.expressionAttributeValues[valueKeyStart] = this.index
-        ? this.parent.buildIndexes(values[0])[sortKeyName]
-        : this.parent.buildKey(values[0])[sortKeyName];
+        ? this.parent.buildIndexes(values[0])[sortKeyName] as Record<string, NativeAttributeValue>
+        : this.parent.buildKey(values[0])[sortKeyName] as Record<string, NativeAttributeValue>;
       this.expressionAttributeValues[valueKeyEnd] = this.index
-        ? this.parent.buildIndexes(values[1])[sortKeyName]
-        : this.parent.buildKey(values[1])[sortKeyName];
+        ? this.parent.buildIndexes(values[1])[sortKeyName] as Record<string, NativeAttributeValue>
+        : this.parent.buildKey(values[1])[sortKeyName] as Record<string, NativeAttributeValue>;
       this.keyConditions.push(
         `${nameKey} BETWEEN ${valueKeyStart} AND ${valueKeyEnd}`,
       );
     } else if (operator === "begins_with") {
       const valueKey = ":sk_value";
       this.expressionAttributeValues[valueKey] = this.index
-        ? this.parent.buildIndexes(values as Partial<T>)[sortKeyName]
-        : this.parent.buildKey(values as Partial<T>)[sortKeyName];
+        ? this.parent.buildIndexes(values as Partial<T>)[sortKeyName] as Record<string, NativeAttributeValue>
+        : this.parent.buildKey(values as Partial<T>)[sortKeyName] as Record<string, NativeAttributeValue>;
       this.keyConditions.push(`begins_with(${nameKey}, ${valueKey})`);
     } else {
       // For eq, lt, lte, gt, gte:
       const valueKey = ":sk_value";
       this.expressionAttributeValues[valueKey] = this.index
-        ? this.parent.buildIndexes(values as Partial<T>)[sortKeyName]
-        : this.parent.buildKey(values as Partial<T>)[sortKeyName];
+        ? this.parent.buildIndexes(values as Partial<T>)[sortKeyName] as Record<string, NativeAttributeValue>
+        : this.parent.buildKey(values as Partial<T>)[sortKeyName] as Record<string, NativeAttributeValue>;
       const condition = getOperatorExpression(operator, nameKey, valueKey);
       this.keyConditions.push(condition);
     }
@@ -112,7 +116,7 @@ export class QueryBuilder<T> {
   public filter(
     attribute: keyof T,
     operator: Operator,
-    values: any | [any, any],
+    values: unknown,
   ): this {
     const attrStr = String(attribute);
     const randomString = Math.random().toString(36).substring(2, 15);
@@ -126,20 +130,20 @@ export class QueryBuilder<T> {
       }
       const placeholderValueStart = `:val_start_${attrStr}_${randomString}`;
       const placeholderValueEnd = `:val_end_${attrStr}_${randomString}`;
-      this.expressionAttributeValues[placeholderValueStart] = values[0];
-      this.expressionAttributeValues[placeholderValueEnd] = values[1];
+      this.expressionAttributeValues[placeholderValueStart] = values[0] as Record<string, NativeAttributeValue>;
+      this.expressionAttributeValues[placeholderValueEnd] = values[1] as Record<string, NativeAttributeValue>;
       this.filterConditions.push(
         `${placeholderName} BETWEEN ${placeholderValueStart} AND ${placeholderValueEnd}`,
       );
     } else if (operator === "begins_with" || operator === "contains") {
       const placeholderValue = `:val_${attrStr}_${randomString}`;
-      this.expressionAttributeValues[placeholderValue] = values;
+      this.expressionAttributeValues[placeholderValue] = values as Record<string, NativeAttributeValue>;
       this.filterConditions.push(
         `${operator}(${placeholderName}, ${placeholderValue})`,
       );
     } else {
       const placeholderValue = `:val_${attrStr}_${randomString}`;
-      this.expressionAttributeValues[placeholderValue] = values;
+      this.expressionAttributeValues[placeholderValue] = values as Record<string, NativeAttributeValue>;
       const condition = getOperatorExpression(
         operator,
         placeholderName,
@@ -156,7 +160,7 @@ export class QueryBuilder<T> {
     return this;
   }
 
-  public startFrom(lastKey: Record<string, any>): this {
+  public startFrom(lastKey: Record<string, NativeAttributeValue>): this {
     this.lastKey = lastKey;
     return this;
   }

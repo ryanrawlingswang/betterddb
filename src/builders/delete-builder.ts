@@ -1,10 +1,10 @@
-import { BetterDDB } from "../betterddb";
-import { TransactWriteItem, DeleteItemInput } from "@aws-sdk/client-dynamodb";
-import { TransactWriteCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
+import { type BetterDDB } from "../betterddb";
+import { type TransactWriteItem, type DeleteItemInput } from "@aws-sdk/client-dynamodb";
+import { type NativeAttributeValue, TransactWriteCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 export class DeleteBuilder<T> {
   private condition?: {
     expression: string;
-    attributeValues: Record<string, any>;
+    attributeValues: Record<string, NativeAttributeValue>;
   };
   private extraTransactItems: TransactWriteItem[] = [];
   constructor(
@@ -17,7 +17,7 @@ export class DeleteBuilder<T> {
    */
   public withCondition(
     expression: string,
-    attributeValues: Record<string, any>,
+    attributeValues: Record<string, NativeAttributeValue>,
   ): this {
     if (this.condition) {
       this.condition.expression += ` AND ${expression}`;

@@ -1,23 +1,23 @@
-import { TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { BetterDDB } from "../betterddb";
+import { type NativeAttributeValue, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { type BetterDDB } from "../betterddb";
 import {
-  TransactWriteItem,
-  Update,
-  UpdateItemInput,
+  type TransactWriteItem,
+  type Update,
+  type UpdateItemInput,
 } from "@aws-sdk/client-dynamodb";
-import { z } from "zod";
+import { type z } from "zod";
 interface UpdateActions<T> {
   set?: Partial<T>;
   remove?: (keyof T)[];
-  add?: Partial<Record<keyof T, number | Set<any>>>;
-  delete?: Partial<Record<keyof T, Set<any>>>;
+  add?: Partial<Record<keyof T, number | Set<NativeAttributeValue>>>;
+  delete?: Partial<Record<keyof T, Set<NativeAttributeValue>>>;
 }
 
 export class UpdateBuilder<T> {
   private actions: UpdateActions<T> = {};
   private condition?: {
     expression: string;
-    attributeValues: Record<string, any>;
+    attributeValues: Record<string, NativeAttributeValue>;
   };
   // When using transaction mode, we store extra transaction items.
   private extraTransactItems: TransactWriteItem[] = [];
@@ -30,29 +30,25 @@ export class UpdateBuilder<T> {
 
   // Chainable methods:
   public set(attrs: Partial<T>): this {
-    const partialSchema = (
-      this.parent.getSchema() as unknown as z.ZodObject<any>
-    ).partial();
+    const partialSchema = this.parent.getSchema().partial();
     const validated = partialSchema.parse(attrs);
     this.actions.set = { ...this.actions.set, ...validated };
     return this;
   }
 
   public remove(attrs: (keyof T)[]): this {
-    this.actions.remove = [...(this.actions.remove || []), ...attrs];
+    this.actions.remove = [...(this.actions.remove ?? []), ...attrs];
     return this;
   }
 
-  public add(attrs: Partial<Record<keyof T, number | Set<any>>>): this {
-    const partialSchema = (
-      this.parent.getSchema() as unknown as z.ZodObject<any>
-    ).partial();
+  public add(attrs: Partial<Record<keyof T, number | Set<NativeAttributeValue>>>): this {
+    const partialSchema = this.parent.getSchema().partial();
     const validated = partialSchema.parse(attrs);
     this.actions.add = { ...this.actions.add, ...validated };
     return this;
   }
 
-  public delete(attrs: Partial<Record<keyof T, Set<any>>>): this {
+  public delete(attrs: Partial<Record<keyof T, Set<NativeAttributeValue>>>): this {
     this.actions.delete = { ...this.actions.delete, ...attrs };
     return this;
   }
@@ -62,7 +58,7 @@ export class UpdateBuilder<T> {
    */
   public setCondition(
     expression: string,
-    attributeValues: Record<string, any>,
+    attributeValues: Record<string, NativeAttributeValue>,
   ): this {
     if (this.condition) {
       // Merge conditions with AND.
@@ -92,10 +88,10 @@ export class UpdateBuilder<T> {
   private buildExpression(): {
     updateExpression: string;
     attributeNames: Record<string, string>;
-    attributeValues: Record<string, any>;
+    attributeValues: Record<string, NativeAttributeValue>;
   } {
     const ExpressionAttributeNames: Record<string, string> = {};
-    const ExpressionAttributeValues: Record<string, any> = {};
+    const ExpressionAttributeValues: Record<string, NativeAttributeValue> = {};
     const clauses: string[] = [];
 
     // Build SET clause.
@@ -178,7 +174,7 @@ export class UpdateBuilder<T> {
       ExpressionAttributeNames: attributeNames,
       ExpressionAttributeValues: attributeValues,
     };
-    if (this.condition && this.condition.expression) {
+    if (this.condition?.expression) {
       updateItem.ConditionExpression = this.condition.expression;
     }
     return { Update: updateItem };
@@ -216,7 +212,7 @@ export class UpdateBuilder<T> {
         ExpressionAttributeValues: attributeValues,
         ReturnValues: "ALL_NEW",
       };
-      if (this.condition && this.condition.expression) {
+      if (this.condition?.expression) {
         params.ConditionExpression = this.condition.expression;
       }
       const result = await this.parent

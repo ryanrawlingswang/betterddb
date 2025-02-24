@@ -1,9 +1,9 @@
 import {
-  AttributeValue,
-  Put,
-  TransactWriteItem,
+  type AttributeValue,
+  type Put,
+  type TransactWriteItem,
 } from "@aws-sdk/client-dynamodb";
-import { BetterDDB } from "../betterddb";
+import { type BetterDDB } from "../betterddb";
 import { PutCommand, TransactWriteCommand } from "@aws-sdk/lib-dynamodb";
 
 export class CreateBuilder<T> {

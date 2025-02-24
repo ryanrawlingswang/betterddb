@@ -1,6 +1,6 @@
-import { BetterDDB } from "../betterddb";
-import { TransactGetCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
-import { GetItemInput, TransactGetItem } from "@aws-sdk/client-dynamodb";
+import { type BetterDDB } from "../betterddb";
+import {  TransactGetCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { type GetItemInput, type TransactGetItem } from "@aws-sdk/client-dynamodb";
 export class GetBuilder<T> {
   private projectionExpression?: string;
   private expressionAttributeNames: Record<string, string> = {};
