@@ -50,7 +50,7 @@ const UserSchema = z.object({
 
 type User = z.infer<typeof UserSchema>;
 
-const userDdb = new BetterDDB({
+const userDdb = new BetterDDB<User>({
   schema: UserSchema,
   tableName: TEST_TABLE,
   entityType: ENTITY_TYPE,
