@@ -1,9 +1,11 @@
-
-
-import { TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { BetterDDB } from '../betterddb';
-import { TransactWriteItem, Update, UpdateItemInput } from '@aws-sdk/client-dynamodb';
-import { z } from 'zod';
+import { TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { BetterDDB } from "../betterddb";
+import {
+  TransactWriteItem,
+  Update,
+  UpdateItemInput,
+} from "@aws-sdk/client-dynamodb";
+import { z } from "zod";
 interface UpdateActions<T> {
   set?: Partial<T>;
   remove?: (keyof T)[];
@@ -13,16 +15,24 @@ interface UpdateActions<T> {
 
 export class UpdateBuilder<T> {
   private actions: UpdateActions<T> = {};
-  private condition?: { expression: string; attributeValues: Record<string, any> };
+  private condition?: {
+    expression: string;
+    attributeValues: Record<string, any>;
+  };
   // When using transaction mode, we store extra transaction items.
   private extraTransactItems: TransactWriteItem[] = [];
 
   // Reference to the parent BetterDDB instance and key.
-  constructor(private parent: BetterDDB<T>, private key: Partial<T>) {}
+  constructor(
+    private parent: BetterDDB<T>,
+    private key: Partial<T>,
+  ) {}
 
   // Chainable methods:
   public set(attrs: Partial<T>): this {
-    const partialSchema = (this.parent.getSchema() as unknown as z.ZodObject<any>).partial();
+    const partialSchema = (
+      this.parent.getSchema() as unknown as z.ZodObject<any>
+    ).partial();
     const validated = partialSchema.parse(attrs);
     this.actions.set = { ...this.actions.set, ...validated };
     return this;
@@ -34,7 +44,9 @@ export class UpdateBuilder<T> {
   }
 
   public add(attrs: Partial<Record<keyof T, number | Set<any>>>): this {
-    const partialSchema = (this.parent.getSchema() as unknown as z.ZodObject<any>).partial();
+    const partialSchema = (
+      this.parent.getSchema() as unknown as z.ZodObject<any>
+    ).partial();
     const validated = partialSchema.parse(attrs);
     this.actions.add = { ...this.actions.add, ...validated };
     return this;
@@ -48,7 +60,10 @@ export class UpdateBuilder<T> {
   /**
    * Adds a condition expression to the update.
    */
-  public setCondition(expression: string, attributeValues: Record<string, any>): this {
+  public setCondition(
+    expression: string,
+    attributeValues: Record<string, any>,
+  ): this {
     if (this.condition) {
       // Merge conditions with AND.
       this.condition.expression += ` AND ${expression}`;
@@ -94,18 +109,18 @@ export class UpdateBuilder<T> {
         setParts.push(`${nameKey} = ${valueKey}`);
       }
       if (setParts.length > 0) {
-        clauses.push(`SET ${setParts.join(', ')}`);
+        clauses.push(`SET ${setParts.join(", ")}`);
       }
     }
 
     // Build REMOVE clause.
     if (this.actions.remove && this.actions.remove.length > 0) {
-      const removeParts = this.actions.remove.map(attr => {
+      const removeParts = this.actions.remove.map((attr) => {
         const nameKey = `#remove_${String(attr)}`;
         ExpressionAttributeNames[nameKey] = String(attr);
         return nameKey;
       });
-      clauses.push(`REMOVE ${removeParts.join(', ')}`);
+      clauses.push(`REMOVE ${removeParts.join(", ")}`);
     }
 
     // Build ADD clause.
@@ -119,7 +134,7 @@ export class UpdateBuilder<T> {
         addParts.push(`${nameKey} ${valueKey}`);
       }
       if (addParts.length > 0) {
-        clauses.push(`ADD ${addParts.join(', ')}`);
+        clauses.push(`ADD ${addParts.join(", ")}`);
       }
     }
 
@@ -134,7 +149,7 @@ export class UpdateBuilder<T> {
         deleteParts.push(`${nameKey} ${valueKey}`);
       }
       if (deleteParts.length > 0) {
-        clauses.push(`DELETE ${deleteParts.join(', ')}`);
+        clauses.push(`DELETE ${deleteParts.join(", ")}`);
       }
     }
 
@@ -144,9 +159,9 @@ export class UpdateBuilder<T> {
     }
 
     return {
-      updateExpression: clauses.join(' '),
+      updateExpression: clauses.join(" "),
       attributeNames: ExpressionAttributeNames,
-      attributeValues: ExpressionAttributeValues
+      attributeValues: ExpressionAttributeValues,
     };
   }
 
@@ -154,13 +169,14 @@ export class UpdateBuilder<T> {
    * Returns a transaction update item that can be included in a transactWrite call.
    */
   public toTransactUpdate(): TransactWriteItem {
-    const { updateExpression, attributeNames, attributeValues } = this.buildExpression();
+    const { updateExpression, attributeNames, attributeValues } =
+      this.buildExpression();
     const updateItem: Update = {
       TableName: this.parent.getTableName(),
       Key: this.parent.buildKey(this.key),
       UpdateExpression: updateExpression,
       ExpressionAttributeNames: attributeNames,
-      ExpressionAttributeValues: attributeValues
+      ExpressionAttributeValues: attributeValues,
     };
     if (this.condition && this.condition.expression) {
       updateItem.ConditionExpression = this.condition.expression;
@@ -177,32 +193,37 @@ export class UpdateBuilder<T> {
       const myTransactItem = this.toTransactUpdate();
       // Combine with extra transaction items.
       const allItems = [...this.extraTransactItems, myTransactItem];
-      await this.parent.getClient().send(new TransactWriteCommand({
-        TransactItems: allItems
-      }));
+      await this.parent.getClient().send(
+        new TransactWriteCommand({
+          TransactItems: allItems,
+        }),
+      );
       // After transaction, retrieve the updated item.
       const result = await this.parent.get(this.key).execute();
       if (result === null) {
-        throw new Error('Item not found after transaction update');
+        throw new Error("Item not found after transaction update");
       }
       return result;
     } else {
       // Normal update flow.
-      const { updateExpression, attributeNames, attributeValues } = this.buildExpression();
+      const { updateExpression, attributeNames, attributeValues } =
+        this.buildExpression();
       const params: UpdateItemInput = {
         TableName: this.parent.getTableName(),
         Key: this.parent.buildKey(this.key),
         UpdateExpression: updateExpression,
         ExpressionAttributeNames: attributeNames,
         ExpressionAttributeValues: attributeValues,
-        ReturnValues: 'ALL_NEW'
+        ReturnValues: "ALL_NEW",
       };
       if (this.condition && this.condition.expression) {
         params.ConditionExpression = this.condition.expression;
       }
-      const result = await this.parent.getClient().send(new UpdateCommand(params));
+      const result = await this.parent
+        .getClient()
+        .send(new UpdateCommand(params));
       if (!result.Attributes) {
-        throw new Error('No attributes returned after update');
+        throw new Error("No attributes returned after update");
       }
       return this.parent.getSchema().parse(result.Attributes) as T;
     }

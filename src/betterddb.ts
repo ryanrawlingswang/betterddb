@@ -1,12 +1,12 @@
-import { z } from 'zod';
-import { QueryBuilder } from './builders/query-builder';
-import { ScanBuilder } from './builders/scan-builder';
-import { UpdateBuilder } from './builders/update-builder';
-import { CreateBuilder } from './builders/create-builder';
-import { GetBuilder } from './builders/get-builder';
-import { DeleteBuilder } from './builders/delete-builder';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { BatchGetBuilder } from './builders/batch-get-builder';
+import { z } from "zod";
+import { QueryBuilder } from "./builders/query-builder";
+import { ScanBuilder } from "./builders/scan-builder";
+import { UpdateBuilder } from "./builders/update-builder";
+import { CreateBuilder } from "./builders/create-builder";
+import { GetBuilder } from "./builders/get-builder";
+import { DeleteBuilder } from "./builders/delete-builder";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { BatchGetBuilder } from "./builders/batch-get-builder";
 export type PrimaryKeyValue = string | number;
 
 /**
@@ -114,15 +114,15 @@ export class BetterDDB<T> {
   public getKeys(): KeysConfig<T> {
     return this.keys;
   }
-  
+
   public getTableName(): string {
     return this.tableName;
   }
-  
+
   public getClient(): DynamoDBDocumentClient {
     return this.client;
   }
-  
+
   public getSchema(): z.ZodType<T, z.ZodTypeDef, any> {
     return this.schema;
   }
@@ -137,7 +137,11 @@ export class BetterDDB<T> {
 
   // Helper: Retrieve the key value from a KeyDefinition.
   protected getKeyValue(def: KeyDefinition<T>, rawKey: Partial<T>): string {
-    if (typeof def === 'string' || typeof def === 'number' || typeof def === 'symbol') {
+    if (
+      typeof def === "string" ||
+      typeof def === "number" ||
+      typeof def === "symbol"
+    ) {
       return String(rawKey[def]);
     } else {
       return def.build(rawKey);
@@ -149,29 +153,29 @@ export class BetterDDB<T> {
    */
   public buildKey(rawKey: Partial<T>): Record<string, any> {
     const keyObj: Record<string, any> = {};
-  
+
     // For primary (partition) key:
     const pkConfig = this.keys.primary;
     keyObj[pkConfig.name] =
-      (typeof pkConfig.definition === 'string' ||
-       typeof pkConfig.definition === 'number' ||
-       typeof pkConfig.definition === 'symbol')
+      typeof pkConfig.definition === "string" ||
+      typeof pkConfig.definition === "number" ||
+      typeof pkConfig.definition === "symbol"
         ? String((rawKey as any)[pkConfig.definition])
         : pkConfig.definition.build(rawKey);
-  
+
     // For sort key, if defined:
     if (this.keys.sort) {
       const skConfig = this.keys.sort;
       keyObj[skConfig.name] =
-        (typeof skConfig.definition === 'string' ||
-         typeof skConfig.definition === 'number' ||
-         typeof skConfig.definition === 'symbol')
+        typeof skConfig.definition === "string" ||
+        typeof skConfig.definition === "number" ||
+        typeof skConfig.definition === "symbol"
           ? String((rawKey as any)[skConfig.definition])
           : skConfig.definition.build(rawKey);
     }
     return keyObj;
   }
-  
+
   /**
    * Build index attributes for each defined GSI.
    */
@@ -180,23 +184,23 @@ export class BetterDDB<T> {
     if (this.keys.gsis) {
       for (const gsiName in this.keys.gsis) {
         const gsiConfig = this.keys.gsis[gsiName];
-  
+
         // Compute primary index attribute.
         const primaryConfig = gsiConfig.primary;
         indexAttributes[primaryConfig.name] =
-          (typeof primaryConfig.definition === 'string' ||
-           typeof primaryConfig.definition === 'number' ||
-           typeof primaryConfig.definition === 'symbol')
+          typeof primaryConfig.definition === "string" ||
+          typeof primaryConfig.definition === "number" ||
+          typeof primaryConfig.definition === "symbol"
             ? String((rawItem as any)[primaryConfig.definition])
             : primaryConfig.definition.build(rawItem);
-  
+
         // Compute sort index attribute if provided.
         if (gsiConfig.sort) {
           const sortConfig = gsiConfig.sort;
           indexAttributes[sortConfig.name] =
-            (typeof sortConfig.definition === 'string' ||
-             typeof sortConfig.definition === 'number' ||
-             typeof sortConfig.definition === 'symbol')
+            typeof sortConfig.definition === "string" ||
+            typeof sortConfig.definition === "number" ||
+            typeof sortConfig.definition === "symbol"
               ? String((rawItem as any)[sortConfig.definition])
               : sortConfig.definition.build(rawItem);
         }
@@ -204,7 +208,7 @@ export class BetterDDB<T> {
     }
     return indexAttributes;
   }
-  
+
   /**
    * Create an item:
    * - Computes primary key and index attributes,
@@ -214,7 +218,7 @@ export class BetterDDB<T> {
   public create(item: T): CreateBuilder<T> {
     return new CreateBuilder<T>(this, item);
   }
-  
+
   /**
    * Get an item by its primary key.
    */
@@ -252,7 +256,7 @@ export class BetterDDB<T> {
 
   /**
    * Scan for items.
-   */ 
+   */
   public scan(): ScanBuilder<T> {
     return new ScanBuilder<T>(this);
   }

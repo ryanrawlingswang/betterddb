@@ -1,7 +1,7 @@
-import { ScanCommand, ScanCommandInput } from '@aws-sdk/lib-dynamodb';
-import { BetterDDB } from '../betterddb';
-import { getOperatorExpression, Operator } from '../operator';
-import { PaginatedResult } from '../types/paginated-result';
+import { ScanCommand, ScanCommandInput } from "@aws-sdk/lib-dynamodb";
+import { BetterDDB } from "../betterddb";
+import { getOperatorExpression, Operator } from "../operator";
+import { PaginatedResult } from "../types/paginated-result";
 
 export class ScanBuilder<T> {
   private filters: string[] = [];
@@ -15,16 +15,16 @@ export class ScanBuilder<T> {
   public where(
     attribute: keyof T,
     operator: Operator,
-    values: any | [any, any]
+    values: any | [any, any],
   ): this {
     const attrStr = String(attribute);
     const nameKey = `#attr_${attrStr}`;
     this.expressionAttributeNames[nameKey] = attrStr;
 
-    if (operator === 'between') {
+    if (operator === "between") {
       if (!Array.isArray(values) || values.length !== 2) {
         throw new Error(
-          `For 'between' operator, values must be a tuple of two items`
+          `For 'between' operator, values must be a tuple of two items`,
         );
       }
       const valueKeyStart = `:val_start_${attrStr}`;
@@ -32,9 +32,9 @@ export class ScanBuilder<T> {
       this.expressionAttributeValues[valueKeyStart] = values[0];
       this.expressionAttributeValues[valueKeyEnd] = values[1];
       this.filters.push(
-        `${nameKey} BETWEEN ${valueKeyStart} AND ${valueKeyEnd}`
+        `${nameKey} BETWEEN ${valueKeyStart} AND ${valueKeyEnd}`,
       );
-    } else if (operator === 'begins_with' || operator === 'contains') {
+    } else if (operator === "begins_with" || operator === "contains") {
       const valueKey = `:val_${attrStr}`;
       this.expressionAttributeValues[valueKey] = values;
       this.filters.push(`${operator}(${nameKey}, ${valueKey})`);
@@ -66,18 +66,22 @@ export class ScanBuilder<T> {
       ExpressionAttributeNames: this.expressionAttributeNames,
       ExpressionAttributeValues: this.expressionAttributeValues,
       Limit: this.limit,
-      ExclusiveStartKey: this.lastKey
+      ExclusiveStartKey: this.lastKey,
     };
 
     if (this.parent.getEntityType()) {
       this.filters.push(`#entity = :entity_value`);
-      this.expressionAttributeNames['#entity'] = 'entityType';
-      this.expressionAttributeValues[':entity_value'] = this.parent.getEntityType();
+      this.expressionAttributeNames["#entity"] = "entityType";
+      this.expressionAttributeValues[":entity_value"] =
+        this.parent.getEntityType();
     }
-    params.FilterExpression = this.filters.join(' AND ');
+    params.FilterExpression = this.filters.join(" AND ");
 
     const result = await this.parent.getClient().send(new ScanCommand(params));
 
-    return {items: this.parent.getSchema().array().parse(result.Items) as T[], lastKey: result.LastEvaluatedKey ?? undefined};
+    return {
+      items: this.parent.getSchema().array().parse(result.Items) as T[],
+      lastKey: result.LastEvaluatedKey ?? undefined,
+    };
   }
 }

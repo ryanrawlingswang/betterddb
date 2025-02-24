@@ -1,1 +1,1 @@
-export * from './betterddb';
+export * from "./betterddb";
