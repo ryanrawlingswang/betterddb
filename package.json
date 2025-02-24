@@ -5,7 +5,6 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "build": "tsc",
     "prepublishOnly": "npm run build",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
@@ -13,7 +12,10 @@
     "test:watch": "npm run docker:up && jest --watch",
     "test:coverage": "npm run docker:up && jest --coverage && npm run docker:down",
     "format": "prettier --write 'src/**/*.ts'",
-    "lint": "eslint src/**/*.ts"
+    "lint": "eslint src/**/*.ts",
+    "clean": "del-cli ./lib",
+    "build": "npm run clean && tsc -p ./tsconfig.json",
+    "prepack": "npm run build"
   },
   "keywords": [
     "dynamodb",
@@ -36,8 +38,9 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
-    "@types/node": "^18.15.0",
+    "@types/node": "^22.13.5",
     "@typescript-eslint/eslint-plugin": "^8.24.1",
+    "del-cli": "^6.0.0",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
