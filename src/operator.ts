@@ -38,6 +38,6 @@ export function getOperatorExpression(
     case "contains":
       return `contains(${nameKey}, ${valueKey})`;
     default:
-      throw new Error(`Unsupported operator: ${operator}`);
+      throw new Error("Unsupported operator");
   }
 }

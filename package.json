@@ -30,13 +30,14 @@
   "author": "R.R. Wang",
   "license": "MIT",
   "dependencies": {
-    "@aws-sdk/lib-dynamodb": "^3.744.0",
     "@aws-sdk/client-dynamodb": "^3.744.0",
+    "@aws-sdk/lib-dynamodb": "^3.744.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^18.15.0",
+    "@typescript-eslint/eslint-plugin": "^8.24.1",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",

@@ -35,7 +35,7 @@ export class QueryBuilder<T> {
 
     this.index = this.parent.getKeys().gsis![indexName];
 
-    const pkName = this.index.primary.name;
+    const pkName = this.index!.primary.name;
     const builtKey = this.parent.buildIndexes(this.key);
     this.expressionAttributeNames["#pk"] = pkName;
     this.expressionAttributeValues[":pk_value"] = builtKey[pkName];

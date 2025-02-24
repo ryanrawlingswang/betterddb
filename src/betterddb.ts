@@ -186,7 +186,7 @@ export class BetterDDB<T> {
         const gsiConfig = this.keys.gsis[gsiName];
 
         // Compute primary index attribute.
-        const primaryConfig = gsiConfig.primary;
+        const primaryConfig = gsiConfig!.primary;
         indexAttributes[primaryConfig.name] =
           typeof primaryConfig.definition === "string" ||
           typeof primaryConfig.definition === "number" ||
@@ -195,7 +195,7 @@ export class BetterDDB<T> {
             : primaryConfig.definition.build(rawItem);
 
         // Compute sort index attribute if provided.
-        if (gsiConfig.sort) {
+        if (gsiConfig?.sort) {
           const sortConfig = gsiConfig.sort;
           indexAttributes[sortConfig.name] =
             typeof sortConfig.definition === "string" ||
