@@ -1,12 +1,9 @@
 {
   "name": "betterddb",
-  "version": "0.6.5",
+  "version": "0.6.4",
   "description": "A definition-based DynamoDB wrapper library that provides a schema-driven and fully typesafe DAL.",
-  "types": "./lib/index.d.ts",
-  "main": "./lib/index.js",
-  "files": [
-    "lib/**/*"
-  ],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
     "prepublishOnly": "npm run build",
     "docker:up": "docker-compose up -d",
