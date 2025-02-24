@@ -4,6 +4,9 @@
   "description": "A definition-based DynamoDB wrapper library that provides a schema-driven and fully typesafe DAL.",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
   "scripts": {
     "prepublishOnly": "npm run build",
     "docker:up": "docker-compose up -d",
