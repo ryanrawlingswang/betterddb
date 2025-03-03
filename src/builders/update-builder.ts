@@ -88,10 +88,10 @@ export class UpdateBuilder<T> {
   private buildExpression(): {
     updateExpression: string;
     attributeNames: Record<string, string>;
-    attributeValues: Record<string, NativeAttributeValue>;
+    attributeValues?: Record<string, NativeAttributeValue>;
   } {
     const ExpressionAttributeNames: Record<string, string> = {};
-    const ExpressionAttributeValues: Record<string, NativeAttributeValue> = {};
+    let ExpressionAttributeValues: Record<string, NativeAttributeValue> | undefined = {};
     const clauses: string[] = [];
 
     // Build SET clause.
@@ -110,7 +110,7 @@ export class UpdateBuilder<T> {
     }
 
     // Build REMOVE clause.
-    if (this.actions.remove) {
+    if (this.actions.remove && this.actions.remove.length > 0) {
       const removeParts = this.actions.remove.map((attr) => {
         const nameKey = `#remove_${String(attr)}`;
         ExpressionAttributeNames[nameKey] = String(attr);
@@ -152,6 +152,10 @@ export class UpdateBuilder<T> {
     // Merge any provided condition attribute values.
     if (this.condition) {
       Object.assign(ExpressionAttributeValues, this.condition.attributeValues);
+    }
+
+    if (Object.keys(ExpressionAttributeValues).length === 0) {
+      ExpressionAttributeValues = undefined;
     }
 
     return {
