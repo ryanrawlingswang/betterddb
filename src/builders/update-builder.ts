@@ -110,7 +110,7 @@ export class UpdateBuilder<T> {
     }
 
     // Build REMOVE clause.
-    if (this.actions.remove && this.actions.remove.length > 0) {
+    if (this.actions.remove) {
       const removeParts = this.actions.remove.map((attr) => {
         const nameKey = `#remove_${String(attr)}`;
         ExpressionAttributeNames[nameKey] = String(attr);
