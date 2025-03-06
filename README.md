@@ -1,8 +1,18 @@
-# betterddb [IN DEVELOPMENT - NOT READY FOR PRODUCTION - BREAKING CHANGES - PLEASE FOR THE LOVE OF GOD DO NOT USE]
+# BetterDDB
 
-**betterddb** is a definition-based DynamoDB wrapper library written in TypeScript. It provides a generic, schema-driven Data Access Layer (DAL) using [Zod](https://github.com/colinhacks/zod) for runtime validation and the AWS SDK for DynamoDB operations. With built-in support for compound keys, computed indexes, automatic timestamp injection, transactional and batch operations, and a fluent builder API for all CRUD operations (create, get, update, delete) as well as queries and scans, **betterddb** lets you work with DynamoDB using definitions instead of ad hoc query code.
+[![npm version](https://badge.fury.io/js/betterddb.svg)](https://badge.fury.io/js/betterddb)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
----
+**BetterDDB** is a type-safe DynamoDB wrapper library that combines runtime validation with compile-time type checking. It provides a high-level, opinionated interface for DynamoDB operations with built-in schema validation using [Zod](https://github.com/colinhacks/zod).
+
+## Key Features
+
+- 🔒 **Type Safety**: Full TypeScript support with compile-time type checking using `zod.infer<T>`
+- ✨ **Runtime Validation**: Schema validation using Zod ensures data integrity
+- 🎯 **Smart Key Management**: Automatic computation of partition keys, sort keys, and GSI keys
+- 🛠️ **Fluent Query API**: Intuitive builder pattern for all DynamoDB operations
+- ⚡ **Developer Experience**: Reduced boilerplate and improved code maintainability
+- 🔄 **Built-in Conveniences**: Automatic timestamp handling, versioning support
 
 ## Installation
 
@@ -10,208 +20,148 @@
 npm install betterddb
 ```
 
----
+## Quick Start
 
-## Usage Example
-
-Below is an example of using **betterddb** for a User entity with a compound key, and using the new fluent builder APIs for create, get, update, and delete, as well as for query and scan operations.
-
-```ts
+```typescript
 import { BetterDDB } from 'betterddb';
 import { z } from 'zod';
-import { DynamoDB } from 'aws-sdk';
+import { DynamoDBDocumentClient, DynamoDB } from '@aws-sdk/lib-dynamodb';
 
-// Define the User schema. Use .passthrough() to allow computed keys.
+// 1. Define your schema with Zod
 const UserSchema = z.object({
-  tenantId: z.string(),
-  userId: z.string(),
-  email: z.string().email(),
+  id: z.string(),
   name: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  version: z.number().optional()
-}).passthrough();
-
-// Configure the DynamoDB DocumentClient (example using LocalStack)
-const client = new DynamoDB.DocumentClient({
-  region: 'us-east-1',
-  endpoint: 'http://localhost:4566'
+  email: z.string().email(),
 });
 
-// Initialize BetterDDB with compound key definitions.
-const userDdb = new BetterDDB({
+// Type inference from schema
+type User = z.infer<typeof UserSchema>;
+
+// 2. Initialize DynamoDB client
+const client = DynamoDBDocumentClient.from(new DynamoDB({
+  region: 'us-east-1',
+}));
+
+// 3. Create your BetterDDB instance
+const userDdb = new BetterDDB<User>({
   schema: UserSchema,
   tableName: 'Users',
+  entityType: 'USER',
   keys: {
-    primary: {
-      name: 'pk',
-      // Compute the partition key from tenantId.
-      definition: { build: (raw) => `TENANT#${raw.tenantId}` }
+    primary: { 
+      name: 'pk', 
+      definition: { build: (raw) => `USER#${raw.id}` } 
     },
-    sort: {
-      name: 'sk',
-      // Compute the sort key from userId.
-      definition: { build: (raw) => `USER#${raw.userId}` }
+    sort: { 
+      name: 'sk', 
+      definition: { build: (raw) => `EMAIL#${raw.email}` } 
     },
     gsis: {
-      // Example: a Global Secondary Index on email.
       EmailIndex: {
-        primary: { name: 'email', definition: 'email' }
+        name: 'EmailIndex',
+        primary: { 
+          name: 'gsi1pk', 
+          definition: { build: (raw) => `USER#${raw.email}` } 
+        },
+        sort: { 
+          name: 'gsi1sk', 
+          definition: { build: (raw) => `USER#${raw.email}` } 
+        }
       }
     }
   },
   client,
   timestamps: true,
-  entityType: 'USER'
 });
 
-(async () => {
-  // ### Create Operation ###
-  // Use the CreateBuilder to build and execute a create operation.
-  const newUser = await userDdb.createBuilder({
-    tenantId: 'tenant1',
-    userId: 'user123',
-    email: 'user@example.com',
-    name: 'Alice'
+// 4. Use the fluent API for operations
+async function example() {
+  // Create with automatic validation
+  const user = await userDdb.create({
+    id: 'user-123',
+    name: 'Alice',
+    email: 'alice@example.com'
   }).execute();
-  console.log('Created User:', newUser);
 
-  // ### Get Operation ###
-  // Use the GetBuilder to retrieve an item. Optionally, use a projection.
-  const user = await userDdb.getBuilder({ id: 'user123' })
-    .withProjection(['name', 'email'])
+  // Query with type-safe filters
+  const results = await userDdb.query({ email: 'alice@example.com' })
+    .usingIndex('EmailIndex')
+    .filter('name', 'begins_with', 'A')
+    .limitResults(10)
     .execute();
-  console.log('Retrieved User:', user);
 
-  // ### Update Operation ###
-  // Use the UpdateBuilder to perform a fluent update.
-  const updatedUser = await userDdb.update({ tenantId: 'tenant1', userId: 'user123' }, 1)
-    .set({ name: 'Jane Doe' })
-    .remove(['obsoleteAttribute'])
+  // Update with automatic timestamp handling
+  const updated = await userDdb.update({ id: 'user-123' })
+    .set({ name: 'Alice B.' })
     .execute();
-  console.log('Updated User (immediate):', updatedUser);
-
-  // Or build a transaction update item and include it in a transaction:
-  const transactionUpdateItem = userDdb.update({ tenantId: 'tenant1', userId: 'user123' }, 1)
-    .set({ name: 'Jane Doe' })
-    .remove(['obsoleteAttribute'])
-    .toTransactUpdate();
-  // Assume transactWrite is available on BetterDDB for executing a transaction.
-  await userDdb.transactWrite([transactionUpdateItem]);
-  console.log('Updated User (transaction) executed.');
-
-  // ### Delete Operation ###
-  // Use the DeleteBuilder to delete an item with an optional condition.
-  await userDdb.deleteBuilder({ id: 'user123' })
-    .withCondition('#status = :expected', { ':expected': 'inactive' })
-    .execute();
-  console.log('User deleted');
-
-  // ### Query Operation ###
-  // Use the fluent QueryBuilder to query items.
-  const queryResults = await userDdb.query({ tenantId: 'tenant1' })
-    .where('name', 'begins_with', 'John')
-    .limitResults(10);
-  console.log('Query Results:', queryResults);
-
-  // ### Scan Operation ###
-  // Use the fluent ScanBuilder to scan the table with a filter.
-  const scanResults = await userDdb.scan()
-    .where('tenantId', 'eq', 'tenant1')
-    .limitResults(50);
-  console.log('Scan Results:', scanResults);
-})();
+}
 ```
 
----
+## Core Concepts
 
-## API Overview
+### Schema Validation
 
-**betterddb** exposes a generic class `BetterDDB<T>` with the following methods:
+BetterDDB uses Zod for both runtime validation and TypeScript type inference:
 
-### Fluent CRUD Builders
+```typescript
+const Schema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+}).passthrough(); // Allow computed fields
 
-- **CreateBuilder**  
-  - `createBuilder(item: T): CreateBuilder<T>`  
-  - Builds a put request with automatic timestamp and key computation.
-  - Usage:  
-    ```ts
-    await betterDdb.createBuilder(item).execute();
-    ```
+type Entity = z.infer<typeof Schema>; // TypeScript type inference
+```
 
-- **GetBuilder**  
-  - `getBuilder(key: Partial<T>): GetBuilder<T>`  
-  - Builds a get request. Supports projections via `.withProjection()`.
-  - Usage:  
-    ```ts
-    const result = await betterDdb.getBuilder({ id: 'user123' })
-      .withProjection(['name', 'email'])
-      .execute();
-    ```
+### Key Management
 
-- **DeleteBuilder**  
-  - `deleteBuilder(key: Partial<T>): DeleteBuilder<T>`  
-  - Builds a delete request. Supports condition expressions via `.withCondition()`.
-  - Usage:  
-    ```ts
-    await betterDdb.deleteBuilder({ id: 'user123' })
-      .withCondition('#status = :expected', { ':expected': 'inactive' })
-      .execute();
-    ```
+Define how your keys should be computed from your entity:
 
-### Fluent Update Builder
+```typescript
+const ddb = new BetterDDB<User>({
+  keys: {
+    primary: {
+      name: 'pk',
+      definition: { build: (raw) => `USER#${raw.id}` }
+    },
+    sort: {
+      name: 'sk',
+      definition: { build: (raw) => `TYPE#${raw.type}` }
+    }
+  }
+});
+```
 
-- `update(key: Partial<T>, expectedVersion?: number): UpdateBuilder<T>`  
-  - Provides chainable methods such as `.set()`, `.remove()`, `.add()`, and `.delete()`.
-  - Also supports transaction mode:
-    - `.toTransactUpdate()` returns a transaction item.
-    - `.transactWrite([...])` allows you to combine update items in a transaction.
-  - Usage:
-    ```ts
-    await betterDdb.update({ id: 'user123' }, 1)
-      .set({ name: 'Jane Doe' })
-      .remove(['obsoleteAttribute'])
-      .execute();
-    ```
+### Query Building
 
-### Fluent Query & Scan Builders
+Fluent API for building type-safe queries:
 
-- **QueryBuilder**  
-  - `query(key: Partial<T>): QueryBuilder<T>`  
-  - Allows you to chain conditions (via `.where()`), sort direction, limits, and pagination.
-  - Usage:
-    ```ts
-    const results = await betterDdb.query({ tenantId: 'tenant1' })
-      .where('name', 'begins_with', 'John')
-      .limitResults(10);
-    ```
+```typescript
+const results = await ddb.query({ id: 'user-123' })
+  .usingIndex('EmailIndex')
+  .where('begins_with', { email: 'alice' })
+  .filter('name', 'contains', 'Smith')
+  .limitResults(10)
+  .execute();
+```
 
-- **ScanBuilder**  
-  - `scan(): ScanBuilder<T>`  
-  - Provides a fluent API to filter and paginate scan operations.
-  - Usage:
-    ```ts
-    const results = await betterDdb.scan()
-      .where('tenantId', 'eq', 'tenant1')
-      .limitResults(50);
-    ```
+## API Reference
 
-### Batch and Transaction Operations
+For detailed API documentation, see our [API Reference](API_REFERENCE.md).
 
-- **Batch Operations:**
-  - `batchWrite(ops: { puts?: T[]; deletes?: Partial<T>[] }): Promise<void>`
-  - `batchGet(rawKeys: Partial<T>[]): Promise<T[]>`
+This documentation covers:
 
-- **Transaction Helpers:**
-  - `buildTransactPut(item: T)`
-  - `buildTransactUpdate(rawKey: Partial<T>, update: Partial<T>, options?: { expectedVersion?: number })`
-  - `buildTransactDelete(rawKey: Partial<T>)`
-  - `transactWrite(...)` and `transactGetByKeys(...)`
+- Initialization and configuration
+- CRUD operations (Create, Read, Update, Delete)
+- Query and Scan operations with filtering
+- Batch and transaction operations
+- Advanced features like automatic timestamps and versioning
+- Schema validation and key management
 
-For complete details, please refer to the API documentation.
+## Contributing
 
----
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ## License
 
-MIT
+MIT © Ryan Krumholz
