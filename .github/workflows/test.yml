@@ -13,13 +13,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
     - name: Set up Docker Compose
-      uses: docker/setup-buildx-action@v3
-      with:
-        buildkitd-flags: --debug
+      uses: docker/compose-action@v3
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
