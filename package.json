@@ -18,7 +18,8 @@
     "lint": "eslint src/**/*.ts",
     "clean": "del-cli ./dist",
     "build": "npm run clean && tsc -p ./tsconfig.json",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "dynamodb",
