@@ -164,4 +164,4 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## License
 
-MIT © Ryan Krumholz
+MIT © Ryan Rawlings Wang

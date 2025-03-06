@@ -19,8 +19,9 @@
     "declarationMap": true,
     "allowSyntheticDefaultImports": true
   },
-  "files": [
-    "./src/index.ts"
+  "include": [
+    "./src/**/*",
+    "./test/**/*"
   ],
   "exclude": [
     "node_modules"

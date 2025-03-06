@@ -62,7 +62,7 @@ const userDdb = new BetterDDB<User>({
 
 beforeAll(async () => {
   await createTestTable(TEST_TABLE, KEY_SCHEMA, ATTRIBUTE_DEFINITIONS, GSIS);
-  await userDdb.create({ id: 'user-123', name: 'John Doe', email: 'john@example.com' } as any).execute();
+  await userDdb.create({ id: 'user-123', name: 'John Doe', email: 'john@example.com' }).execute();
 });
 
 afterAll(async () => {

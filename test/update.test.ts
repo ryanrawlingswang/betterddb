@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { BetterDDB } from '../src/betterddb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { createTestTable, deleteTestTable } from './utils/table-setup';
-import { DynamoDB, GlobalSecondaryIndex } from '@aws-sdk/client-dynamodb';
+import { DynamoDB, GlobalSecondaryIndex, AttributeValue } from '@aws-sdk/client-dynamodb';
 import { KeySchemaElement, AttributeDefinition } from '@aws-sdk/client-dynamodb';
 const TEST_TABLE = "update-test-table";
 const ENDPOINT = 'http://localhost:4566';
@@ -44,6 +44,8 @@ const UserSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().email(),
+  points: z.number().optional(),
+  tags: z.set(z.string()).optional(),
 });
 
 type User = z.infer<typeof UserSchema>;
@@ -62,7 +64,8 @@ const userDdb = new BetterDDB<User>({
 
 beforeAll(async () => {
   await createTestTable(TEST_TABLE, KEY_SCHEMA, ATTRIBUTE_DEFINITIONS, GSIS);
-  await userDdb.create({ id: 'user-123', name: 'John Doe', email: 'john@example.com' } as any).execute();
+  const initialUser: User = { id: 'user-123', name: 'John Doe', email: 'john@example.com' };
+  await userDdb.create(initialUser).execute();
 });
 
 afterAll(async () => {
@@ -71,14 +74,145 @@ afterAll(async () => {
 
 describe('BetterDDB - Update Operation', () => {
   it('should update an existing item using UpdateBuilder', async () => {
-    const updatedUser = await userDdb.update({ id: 'user-123', email: 'john@example.com' }).set({ name: 'Jane Doe' }).execute();
+    const updatedUser = await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .set({ name: 'Jane Doe' })
+      .execute();
     expect(updatedUser.name).toBe('Jane Doe');
     expect(updatedUser.email).toBe('john@example.com');
   });
 
-  // it('should update an existing item using UpdateBuilder with null values throws', async () => {
-  //   const updates = { name: 'Jane Doe', email: null };
-  //   // @ts-ignore
-  //   expect(await userDdb.update({ id: 'user-123', email: 'john@example.com' }).set(updates).execute()).rejects.toThrow();
-  // });
+  it('should add optional attributes and remove them', async () => {
+    // First add the optional attribute
+    await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .set({ points: 10, name: 'John Doe' })  // Maintain required field
+      .execute();
+
+    // Then remove it
+    const updatedUser = await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .remove(['points'])
+      .execute();
+    
+    expect(updatedUser.points).toBeUndefined();
+    expect(updatedUser.name).toBe('John Doe'); // Required field remains
+    expect(updatedUser.email).toBe('john@example.com'); // Required field remains
+  });
+
+  it('should add to a number attribute', async () => {
+    // First set initial value with all required fields
+    await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .set({ points: 10, name: 'John Doe' })
+      .execute();
+
+    // Then add to it
+    const updatedUser = await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .add({ points: 5 })
+      .execute();
+    
+    expect(updatedUser.points).toBe(15);
+    expect(updatedUser.name).toBe('John Doe'); // Required field remains
+    expect(updatedUser.email).toBe('john@example.com'); // Required field remains
+  });
+
+  it('should add and remove from a set attribute', async () => {
+    // First set initial value with all required fields
+    await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .set({ tags: new Set(['tag1']), name: 'John Doe' })
+      .execute();
+
+    // Add to set
+    let updatedUser = await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .add({ tags: new Set(['tag2']) })
+      .execute();
+    
+    expect(updatedUser.tags).toEqual(new Set(['tag1', 'tag2']));
+    expect(updatedUser.name).toBe('John Doe'); // Required field remains
+    expect(updatedUser.email).toBe('john@example.com'); // Required field remains
+
+    // Delete from set
+    updatedUser = await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .delete({ tags: new Set(['tag1']) })
+      .execute();
+    
+    expect(updatedUser.tags).toEqual(new Set(['tag2']));
+    expect(updatedUser.name).toBe('John Doe'); // Required field remains
+    expect(updatedUser.email).toBe('john@example.com'); // Required field remains
+  });
+
+  it('should perform conditional updates', async () => {
+    // Update only if name matches
+    const updatedUser = await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .set({ name: 'John Smith' })
+      .setCondition('#n = :n', {
+        ':n': 'John Doe'
+      }, {
+        '#n': 'name'
+      })
+      .execute();
+    
+    expect(updatedUser.name).toBe('John Smith');
+    expect(updatedUser.email).toBe('john@example.com'); // Required field remains
+  });
+
+  it('should fail conditional updates when condition is not met', async () => {
+    await expect(userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .set({ name: 'John Smith' })
+      .setCondition('#n = :n', {
+        ':n': 'Wrong Name'
+      }, {
+        '#n': 'name'
+      })
+      .execute()).rejects.toThrow();
+  });
+
+  it('should perform transaction updates', async () => {
+    // Create another user for the transaction
+    const newUser: User = { id: 'user-456', name: 'Alice', email: 'alice@example.com' };
+    await userDdb.create(newUser).execute();
+
+    // Create a second update builder for the transaction
+    const secondUpdate = userDdb.update({ id: 'user-456', email: 'alice@example.com' })
+      .set({ name: 'Alice Updated' })
+      .toTransactUpdate();
+
+    // Update both users in a transaction
+    const updatedUser = await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .set({ name: 'John Updated' })
+      .transactWrite(secondUpdate)
+      .execute();
+
+    expect(updatedUser.name).toBe('John Updated');
+    expect(updatedUser.email).toBe('john@example.com'); // Required field remains
+
+    // Verify the other user was updated
+    const otherUser = await userDdb.get({ id: 'user-456', email: 'alice@example.com' }).execute();
+    expect(otherUser?.name).toBe('Alice Updated');
+    expect(otherUser?.email).toBe('alice@example.com'); // Required field remains
+  });
+
+  it('should fail validation when setting invalid values', async () => {
+    // This should fail at schema validation level
+    const builder = userDdb.update({ id: 'user-123', email: 'john@example.com' });
+    
+    // The validation should happen immediately when setting invalid values
+    expect(() => builder.set({ email: 'invalid-email' }))
+      .toThrow(z.ZodError);
+    
+    // Verify the error message
+    try {
+      builder.set({ email: 'invalid-email' });
+      fail('Should have thrown a validation error');
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        expect(error.errors[0].message).toBe('Invalid email');
+      } else {
+        fail('Expected ZodError');
+      }
+    }
+  });
+
+  it('should fail when updating non-existent item', async () => {
+    await expect(userDdb.update({ id: 'non-existent', email: 'none@example.com' })
+      .set({ name: 'New Name' })
+      .execute()).rejects.toThrow();
+  });
 });

@@ -73,7 +73,7 @@ describe('BetterDDB - Create Operation', () => {
   it('should insert an item using CreateBuilder', async () => {
     const user = { id: 'user-123', name: 'John Doe', email: 'john@example.com' };
 
-    await userDdb.create(user as any).execute();
+    await userDdb.create(user).execute();
 
     const result = await client.send(new GetCommand({ TableName: TEST_TABLE, Key: { pk: 'USER#user-123', sk: 'EMAIL#john@example.com' } }));
 
@@ -89,7 +89,7 @@ describe('BetterDDB - Create Operation', () => {
   });
 
   it('should fails to validate and not insert an item', async () => {
-    const user = { id: 'user-123', email: 'john@example.com' };
-    await expect(userDdb.create(user as any).execute()).rejects.toThrow();
+    const user = { id: 'user-123', email: 'john@example.com' } as User;
+    await expect(userDdb.create(user).execute()).rejects.toThrow();
   });
 });
