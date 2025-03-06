@@ -68,7 +68,7 @@ beforeAll(async () => {
     { id: 'user-2', name: 'Alice B', email: 'alice@example.com' },
     { id: 'user-3', name: 'Bob', email: 'bob@example.com' }
   ];
-  await Promise.all(items.map(item => userDdb.create(item as any).execute()));
+  await Promise.all(items.map(item => userDdb.create(item).execute()));
 });
 
 afterAll(async () => {

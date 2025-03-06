@@ -18,6 +18,7 @@ export class UpdateBuilder<T> {
   private condition?: {
     expression: string;
     attributeValues: Record<string, NativeAttributeValue>;
+    attributeNames: Record<string, string>;
   };
   // When using transaction mode, we store extra transaction items.
   private extraTransactItems: TransactWriteItem[] = [];
@@ -59,13 +60,19 @@ export class UpdateBuilder<T> {
   public setCondition(
     expression: string,
     attributeValues: Record<string, NativeAttributeValue>,
+    attributeNames: Record<string, string>
   ): this {
     if (this.condition) {
       // Merge conditions with AND.
       this.condition.expression += ` AND ${expression}`;
       Object.assign(this.condition.attributeValues, attributeValues);
+      Object.assign(this.condition.attributeNames, attributeNames);
     } else {
-      this.condition = { expression, attributeValues };
+      this.condition = { 
+        expression, 
+        attributeValues,
+        attributeNames
+      };
     }
     return this;
   }
@@ -149,8 +156,9 @@ export class UpdateBuilder<T> {
       }
     }
 
-    // Merge any provided condition attribute values.
+    // Merge any provided condition attribute names and values
     if (this.condition) {
+      Object.assign(ExpressionAttributeNames, this.condition.attributeNames);
       Object.assign(ExpressionAttributeValues, this.condition.attributeValues);
     }
 
