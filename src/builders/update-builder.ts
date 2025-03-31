@@ -101,9 +101,46 @@ export class UpdateBuilder<T> {
     let ExpressionAttributeValues: Record<string, NativeAttributeValue> | undefined = {};
     const clauses: string[] = [];
 
+    // Get the key configuration from the parent
+    const keys = this.parent.getKeys();
+    const keyDefinitions = new Map<string, { name: string; definition: { build: (raw: Partial<T>) => string } | keyof T }>();
+    
+    // Helper to get key value from definition
+    const getKeyValue = (def: { build: (raw: Partial<T>) => string } | keyof T, item: Partial<T>): string => {
+      if (typeof def === 'object' && 'build' in def) {
+        return def.build(item);
+      }
+      return String(item[def]);
+    };
+
+    // Add primary key definition
+    const primaryKeyValue = getKeyValue(keys.primary.definition, this.key);
+    keyDefinitions.set(primaryKeyValue, keys.primary);
+    
+    // Add sort key definition if it exists
+    if (keys.sort) {
+      const sortKeyValue = getKeyValue(keys.sort.definition, this.key);
+      keyDefinitions.set(sortKeyValue, keys.sort);
+    }
+
+    // Add GSI key definitions if they exist
+    if (keys.gsis) {
+      for (const gsi of Object.values(keys.gsis)) {
+        const gsiPrimaryKeyValue = getKeyValue(gsi.primary.definition, this.key);
+        keyDefinitions.set(gsiPrimaryKeyValue, gsi.primary);
+        if (gsi.sort) {
+          const gsiSortKeyValue = getKeyValue(gsi.sort.definition, this.key);
+          keyDefinitions.set(gsiSortKeyValue, gsi.sort);
+        }
+      }
+    }
+
     // Build SET clause.
     if (this.actions.set) {
       const setParts: string[] = [];
+      const updatedItem = { ...this.key, ...this.actions.set };
+
+      // First add all non-key attributes
       for (const [attr, value] of Object.entries(this.actions.set)) {
         const nameKey = `#set_${attr}`;
         const valueKey = `:set_${attr}`;
@@ -111,6 +148,19 @@ export class UpdateBuilder<T> {
         ExpressionAttributeValues[valueKey] = value;
         setParts.push(`${nameKey} = ${valueKey}`);
       }
+
+      // Then compute and add any key attributes that need to be updated
+      for (const [sourceValue, keyDef] of keyDefinitions) {
+        const newValue = getKeyValue(keyDef.definition, updatedItem);
+        if (newValue !== sourceValue) {
+          const nameKey = `#key_${keyDef.name}`;
+          const valueKey = `:key_${keyDef.name}`;
+          ExpressionAttributeNames[nameKey] = keyDef.name;
+          ExpressionAttributeValues[valueKey] = newValue;
+          setParts.push(`${nameKey} = ${valueKey}`);
+        }
+      }
+
       if (setParts.length > 0) {
         clauses.push(`SET ${setParts.join(", ")}`);
       }
@@ -129,13 +179,30 @@ export class UpdateBuilder<T> {
     // Build ADD clause.
     if (this.actions.add) {
       const addParts: string[] = [];
+      const updatedItem = { ...this.key };
+
+      // First add all non-key attributes
       for (const [attr, value] of Object.entries(this.actions.add)) {
         const nameKey = `#add_${attr}`;
         const valueKey = `:add_${attr}`;
         ExpressionAttributeNames[nameKey] = attr;
         ExpressionAttributeValues[valueKey] = value;
         addParts.push(`${nameKey} ${valueKey}`);
+        updatedItem[attr as keyof T] = value as T[keyof T];
       }
+
+      // Then compute and add any key attributes that need to be updated
+      for (const [sourceValue, keyDef] of keyDefinitions) {
+        const newValue = getKeyValue(keyDef.definition, updatedItem);
+        if (newValue !== sourceValue) {
+          const nameKey = `#key_${keyDef.name}`;
+          const valueKey = `:key_${keyDef.name}`;
+          ExpressionAttributeNames[nameKey] = keyDef.name;
+          ExpressionAttributeValues[valueKey] = newValue;
+          addParts.push(`${nameKey} ${valueKey}`);
+        }
+      }
+
       if (addParts.length > 0) {
         clauses.push(`ADD ${addParts.join(", ")}`);
       }
