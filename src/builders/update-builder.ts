@@ -34,6 +34,12 @@ export class UpdateBuilder<T> {
     const partialSchema = this.parent.getSchema().partial();
     const validated = partialSchema.parse(attrs);
     this.actions.set = { ...this.actions.set, ...validated };
+
+    const indexAttributes = this.parent.buildIndexes(validated as Partial<T>);
+    if (Object.keys(indexAttributes).length > 0) {
+      this.actions.set = { ...this.actions.set, ...indexAttributes };
+    }
+
     return this;
   }
 
@@ -46,6 +52,12 @@ export class UpdateBuilder<T> {
     const partialSchema = this.parent.getSchema().partial();
     const validated = partialSchema.parse(attrs);
     this.actions.add = { ...this.actions.add, ...validated };
+
+    const indexAttributes = this.parent.buildIndexes(validated as Partial<T>);
+    if (Object.keys(indexAttributes).length > 0) {
+      this.actions.set = { ...this.actions.set, ...indexAttributes };
+    }
+    
     return this;
   }
 

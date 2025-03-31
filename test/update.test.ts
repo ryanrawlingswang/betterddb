@@ -46,6 +46,8 @@ const UserSchema = z.object({
   email: z.string().email(),
   points: z.number().optional(),
   tags: z.set(z.string()).optional(),
+  gsi1pk: z.string().optional(),
+  gsi1sk: z.string().optional(),
 });
 
 type User = z.infer<typeof UserSchema>;
@@ -214,5 +216,55 @@ describe('BetterDDB - Update Operation', () => {
     await expect(userDdb.update({ id: 'non-existent', email: 'none@example.com' })
       .set({ name: 'New Name' })
       .execute()).rejects.toThrow();
+  });
+
+  it('should update index attributes when modifying indexed fields', async () => {
+    // First verify the initial state
+    const initialUser = await userDdb.get({ id: 'user-123', email: 'john@example.com' }).execute();
+    expect(initialUser).toBeTruthy();
+    expect(initialUser?.gsi1pk).toBe('USER#john@example.com');
+    expect(initialUser?.gsi1sk).toBe('user-123');
+
+    // Update the email which should trigger index updates
+    const updatedUser = await userDdb.update({ id: 'user-123', email: 'john@example.com' })
+      .set({ email: 'john.updated@example.com' })
+      .execute();
+
+    // Verify the main attributes were updated
+    expect(updatedUser.email).toBe('john.updated@example.com');
+    expect(updatedUser.name).toBe('John Doe'); // Required field remains
+
+    // Verify the index attributes were updated
+    expect(updatedUser.gsi1pk).toBe('USER#john.updated@example.com');
+    expect(updatedUser.gsi1sk).toBe('user-123');
+
+    // Verify we can query using the new index values
+    const queriedUser = await userDdb.query({ gsi1pk: 'USER#john.updated@example.com' })
+      .usingIndex(GSI_NAME)
+      .where('==', { gsi1sk: 'user-123' })
+      .execute();
+    expect(queriedUser.items).toHaveLength(1);
+    expect(queriedUser.items[0].id).toBe('user-123');
+  });
+
+  it('should update index attributes when using add operation on indexed fields', async () => {
+    // First set up a user with tags
+    await userDdb.update({ id: 'user-123', email: 'john.updated@example.com' })
+      .set({ tags: new Set(['tag1']), name: 'John Doe' })
+      .execute();
+
+    // Add to the set which should trigger index updates
+    const updatedUser = await userDdb.update({ id: 'user-123', email: 'john.updated@example.com' })
+      .add({ tags: new Set(['tag2']) })
+      .execute();
+
+    // Verify the main attributes were updated
+    expect(updatedUser.tags).toEqual(new Set(['tag1', 'tag2']));
+    expect(updatedUser.name).toBe('John Doe'); // Required field remains
+    expect(updatedUser.email).toBe('john.updated@example.com'); // Required field remains
+
+    // Verify the index attributes remain correct
+    expect(updatedUser.gsi1pk).toBe('USER#john.updated@example.com');
+    expect(updatedUser.gsi1sk).toBe('user-123');
   });
 });
