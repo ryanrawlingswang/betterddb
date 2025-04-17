@@ -16,8 +16,8 @@ export const createTestTable = async (tableName: string, keySchema: CreateTableC
       BillingMode: 'PAY_PER_REQUEST',
       GlobalSecondaryIndexes: gsis,
     });
-  } catch (error: any) {
-    if (error.code === 'ResourceInUseException') {
+  } catch (error: unknown) {
+    if ((error as { code?: string }).code === 'ResourceInUseException') {
       console.log('Table already exists, skipping creation.');
     } else {
       throw error;
@@ -46,8 +46,8 @@ export const deleteTestTable = async (tableName: string) => {
   });
   try {
     await dynamoDB.deleteTable({ TableName: tableName });
-  } catch (error: any) {
-    if (error.code === 'ResourceNotFoundException') {
+  } catch (error: unknown) {
+    if ((error as { code?: string }).code === 'ResourceNotFoundException') {
       console.log('Table not found during deletion.');
     } else {
       throw error;

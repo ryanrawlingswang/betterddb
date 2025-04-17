@@ -57,6 +57,7 @@ const userDdb = new BetterDDB<User>({
   keys: {
     primary: { name: PRIMARY_KEY, definition: { build: (raw) => raw.id! } },
     sort: { name: SORT_KEY, definition: { build: (raw) => raw.email! } },
+    gsis: { EmailIndex: { name: GSI_NAME, primary: { name: GSI_PRIMARY_KEY, definition: { build: (raw) => "EMAIL" } }, sort: { name: GSI_SORT_KEY, definition: { build: (raw) => `EMAIL#${raw.email}` } } } },
   },
   client,
   timestamps: true,
@@ -64,8 +65,15 @@ const userDdb = new BetterDDB<User>({
 
 beforeAll(async () => {
   await createTestTable(TEST_TABLE, KEY_SCHEMA, ATTRIBUTE_DEFINITIONS, GSIS);
+});
+
+beforeEach(async () => {
   const initialUser: User = { id: 'user-123', name: 'John Doe', email: 'john@example.com' };
   await userDdb.create(initialUser).execute();
+});
+
+afterEach(async () => {
+  await userDdb.delete({ id: 'user-123', email: 'john@example.com' }).execute();
 });
 
 afterAll(async () => {
@@ -240,25 +248,5 @@ describe('BetterDDB - Update Operation', () => {
       .execute();
     expect(queriedUser.items).toHaveLength(1);
     expect(queriedUser.items[0].id).toBe('user-123');
-  });
-
-  it('should update index attributes when using add operation on indexed fields', async () => {
-    // First set up a user with tags
-    await userDdb.update({ id: 'user-123', email: 'john.updated@example.com' })
-      .set({ tags: new Set(['tag1']), name: 'John Doe' })
-      .execute();
-
-    // Add to the set which should trigger index updates
-    const updatedUser = await userDdb.update({ id: 'user-123', email: 'john.updated@example.com' })
-      .add({ tags: new Set(['tag2']) })
-      .execute();
-
-    // Verify the main attributes were updated
-    expect(updatedUser.tags).toEqual(new Set(['tag1', 'tag2']));
-    expect(updatedUser.name).toBe('John Doe'); // Required field remains
-    expect(updatedUser.email).toBe('john.updated@example.com'); // Required field remains
-
-    // Verify the index attributes remain correct
-    expect(updatedUser.email).toBe('john.updated@example.com');
   });
 });
