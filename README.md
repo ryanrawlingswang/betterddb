@@ -23,9 +23,9 @@ npm install betterddb
 ## Quick Start
 
 ```typescript
-import { BetterDDB } from 'betterddb';
-import { z } from 'zod';
-import { DynamoDBDocumentClient, DynamoDB } from '@aws-sdk/lib-dynamodb';
+import { BetterDDB } from "betterddb";
+import { z } from "zod";
+import { DynamoDBDocumentClient, DynamoDB } from "@aws-sdk/lib-dynamodb";
 
 // 1. Define your schema with Zod
 const UserSchema = z.object({
@@ -38,37 +38,39 @@ const UserSchema = z.object({
 type User = z.infer<typeof UserSchema>;
 
 // 2. Initialize DynamoDB client
-const client = DynamoDBDocumentClient.from(new DynamoDB({
-  region: 'us-east-1',
-}));
+const client = DynamoDBDocumentClient.from(
+  new DynamoDB({
+    region: "us-east-1",
+  }),
+);
 
 // 3. Create your BetterDDB instance
 const userDdb = new BetterDDB<User>({
   schema: UserSchema,
-  tableName: 'Users',
-  entityType: 'USER',
+  tableName: "Users",
+  entityType: "USER",
   keys: {
-    primary: { 
-      name: 'pk', 
-      definition: { build: (raw) => `USER#${raw.id}` } 
+    primary: {
+      name: "pk",
+      definition: { build: (raw) => `USER#${raw.id}` },
     },
-    sort: { 
-      name: 'sk', 
-      definition: { build: (raw) => `EMAIL#${raw.email}` } 
+    sort: {
+      name: "sk",
+      definition: { build: (raw) => `EMAIL#${raw.email}` },
     },
     gsis: {
       EmailIndex: {
-        name: 'EmailIndex',
-        primary: { 
-          name: 'gsi1pk', 
-          definition: { build: (raw) => `USER#${raw.email}` } 
+        name: "EmailIndex",
+        primary: {
+          name: "gsi1pk",
+          definition: { build: (raw) => `USER#${raw.email}` },
         },
-        sort: { 
-          name: 'gsi1sk', 
-          definition: { build: (raw) => `USER#${raw.email}` } 
-        }
-      }
-    }
+        sort: {
+          name: "gsi1sk",
+          definition: { build: (raw) => `USER#${raw.email}` },
+        },
+      },
+    },
   },
   client,
   timestamps: true,
@@ -77,22 +79,26 @@ const userDdb = new BetterDDB<User>({
 // 4. Use the fluent API for operations
 async function example() {
   // Create with automatic validation
-  const user = await userDdb.create({
-    id: 'user-123',
-    name: 'Alice',
-    email: 'alice@example.com'
-  }).execute();
+  const user = await userDdb
+    .create({
+      id: "user-123",
+      name: "Alice",
+      email: "alice@example.com",
+    })
+    .execute();
 
   // Query with type-safe filters
-  const results = await userDdb.query({ email: 'alice@example.com' })
-    .usingIndex('EmailIndex')
-    .filter('name', 'begins_with', 'A')
+  const results = await userDdb
+    .query({ email: "alice@example.com" })
+    .usingIndex("EmailIndex")
+    .filter("name", "begins_with", "A")
     .limitResults(10)
     .execute();
 
   // Update with automatic timestamp handling
-  const updated = await userDdb.update({ id: 'user-123' })
-    .set({ name: 'Alice B.' })
+  const updated = await userDdb
+    .update({ id: "user-123" })
+    .set({ name: "Alice B." })
     .execute();
 }
 ```
@@ -104,11 +110,13 @@ async function example() {
 BetterDDB uses Zod for both runtime validation and TypeScript type inference:
 
 ```typescript
-const Schema = z.object({
-  id: z.string(),
-  name: z.string(),
-  email: z.string().email(),
-}).passthrough(); // Allow computed fields
+const Schema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string().email(),
+  })
+  .passthrough(); // Allow computed fields
 
 type Entity = z.infer<typeof Schema>; // TypeScript type inference
 ```
@@ -121,14 +129,14 @@ Define how your keys should be computed from your entity:
 const ddb = new BetterDDB<User>({
   keys: {
     primary: {
-      name: 'pk',
-      definition: { build: (raw) => `USER#${raw.id}` }
+      name: "pk",
+      definition: { build: (raw) => `USER#${raw.id}` },
     },
     sort: {
-      name: 'sk',
-      definition: { build: (raw) => `TYPE#${raw.type}` }
-    }
-  }
+      name: "sk",
+      definition: { build: (raw) => `TYPE#${raw.type}` },
+    },
+  },
 });
 ```
 
@@ -137,10 +145,11 @@ const ddb = new BetterDDB<User>({
 Fluent API for building type-safe queries:
 
 ```typescript
-const results = await ddb.query({ id: 'user-123' })
-  .usingIndex('EmailIndex')
-  .where('begins_with', { email: 'alice' })
-  .filter('name', 'contains', 'Smith')
+const results = await ddb
+  .query({ id: "user-123" })
+  .usingIndex("EmailIndex")
+  .where("begins_with", { email: "alice" })
+  .filter("name", "contains", "Smith")
   .limitResults(10)
   .execute();
 ```

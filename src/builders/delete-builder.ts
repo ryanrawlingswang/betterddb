@@ -1,6 +1,13 @@
-import { type BetterDDB } from "../betterddb";
-import { type TransactWriteItem, type DeleteItemInput } from "@aws-sdk/client-dynamodb";
-import { type NativeAttributeValue, TransactWriteCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
+import { type BetterDDB } from "../betterddb.js";
+import {
+  type TransactWriteItem,
+  type DeleteItemInput,
+} from "@aws-sdk/client-dynamodb";
+import {
+  type NativeAttributeValue,
+  TransactWriteCommand,
+  DeleteCommand,
+} from "@aws-sdk/lib-dynamodb";
 export class DeleteBuilder<T> {
   private condition?: {
     expression: string;

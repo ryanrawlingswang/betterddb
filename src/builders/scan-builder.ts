@@ -1,7 +1,11 @@
-import { ScanCommand, type ScanCommandInput, type NativeAttributeValue } from "@aws-sdk/lib-dynamodb";
-import { type BetterDDB } from "../betterddb";
-import { getOperatorExpression, type Operator } from "../operator";
-import { type PaginatedResult } from "../types/paginated-result";
+import {
+  ScanCommand,
+  type ScanCommandInput,
+  type NativeAttributeValue,
+} from "@aws-sdk/lib-dynamodb";
+import { type BetterDDB } from "../betterddb.js";
+import { getOperatorExpression, type Operator } from "../operator.js";
+import { type PaginatedResult } from "../types/paginated-result.js";
 
 export class ScanBuilder<T> {
   private filters: string[] = [];
@@ -12,11 +16,7 @@ export class ScanBuilder<T> {
 
   constructor(private parent: BetterDDB<T>) {}
 
-  public where(
-    attribute: keyof T,
-    operator: Operator,
-    values: unknown,
-  ): this {
+  public where(attribute: keyof T, operator: Operator, values: unknown): this {
     const attrStr = String(attribute);
     const nameKey = `#attr_${attrStr}`;
     this.expressionAttributeNames[nameKey] = attrStr;
@@ -28,18 +28,30 @@ export class ScanBuilder<T> {
       }
       const valueKeyStart = `:val_start_${attrStr}`;
       const valueKeyEnd = `:val_end_${attrStr}`;
-      this.expressionAttributeValues[valueKeyStart] = values[0] as Record<string, NativeAttributeValue>;
-      this.expressionAttributeValues[valueKeyEnd] = values[1] as Record<string, NativeAttributeValue>;
+      this.expressionAttributeValues[valueKeyStart] = values[0] as Record<
+        string,
+        NativeAttributeValue
+      >;
+      this.expressionAttributeValues[valueKeyEnd] = values[1] as Record<
+        string,
+        NativeAttributeValue
+      >;
       this.filters.push(
         `${nameKey} BETWEEN ${valueKeyStart} AND ${valueKeyEnd}`,
       );
     } else if (operator === "begins_with" || operator === "contains") {
       const valueKey = `:val_${attrStr}`;
-      this.expressionAttributeValues[valueKey] = values as Record<string, NativeAttributeValue>;
+      this.expressionAttributeValues[valueKey] = values as Record<
+        string,
+        NativeAttributeValue
+      >;
       this.filters.push(`${operator}(${nameKey}, ${valueKey})`);
     } else {
       const valueKey = `:val_${attrStr}`;
-      this.expressionAttributeValues[valueKey] = values as Record<string, NativeAttributeValue>;
+      this.expressionAttributeValues[valueKey] = values as Record<
+        string,
+        NativeAttributeValue
+      >;
       const condition = getOperatorExpression(operator, nameKey, valueKey);
       this.filters.push(condition);
     }

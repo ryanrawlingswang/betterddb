@@ -12,30 +12,30 @@ This project and everyone participating in it is governed by our Code of Conduct
 
 Before creating bug reports, please check the issue list as you might find out that you don't need to create one. When you are creating a bug report, please include as many details as possible:
 
-* Use a clear and descriptive title
-* Describe the exact steps which reproduce the problem
-* Provide specific examples to demonstrate the steps
-* Describe the behavior you observed after following the steps
-* Explain which behavior you expected to see instead and why
-* Include code samples and error messages if applicable
+- Use a clear and descriptive title
+- Describe the exact steps which reproduce the problem
+- Provide specific examples to demonstrate the steps
+- Describe the behavior you observed after following the steps
+- Explain which behavior you expected to see instead and why
+- Include code samples and error messages if applicable
 
 ### Suggesting Enhancements
 
 Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, please include:
 
-* Use a clear and descriptive title
-* Provide a step-by-step description of the suggested enhancement
-* Provide specific examples to demonstrate the steps
-* Describe the current behavior and explain which behavior you expected to see instead
-* Explain why this enhancement would be useful
+- Use a clear and descriptive title
+- Provide a step-by-step description of the suggested enhancement
+- Provide specific examples to demonstrate the steps
+- Describe the current behavior and explain which behavior you expected to see instead
+- Explain why this enhancement would be useful
 
 ### Pull Requests
 
-* Fork the repo and create your branch from `main`
-* If you've added code that should be tested, add tests
-* Ensure the test suite passes
-* Make sure your code lints
-* Update the documentation
+- Fork the repo and create your branch from `main`
+- If you've added code that should be tested, add tests
+- Ensure the test suite passes
+- Make sure your code lints
+- Update the documentation
 
 ## Development Setup
 
@@ -95,16 +95,16 @@ Each test file focuses on a specific aspect of the library. Tests should follow 
 Here's an example of a basic test structure:
 
 ```typescript
-import { z } from 'zod';
-import { BetterDDB } from '../src/betterddb';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { DynamoDB } from '@aws-sdk/client-dynamodb';
-import { createTestTable, deleteTestTable } from './utils/table-setup';
+import { z } from "zod";
+import { BetterDDB } from "../src/betterddb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { DynamoDB } from "@aws-sdk/client-dynamodb";
+import { createTestTable, deleteTestTable } from "./utils/table-setup";
 
 // Constants for test configuration
 const TEST_TABLE = "my-test-table";
-const ENDPOINT = 'http://localhost:4566';
-const REGION = 'us-east-1';
+const ENDPOINT = "http://localhost:4566";
+const REGION = "us-east-1";
 
 // Define schema and key configuration
 const MySchema = z.object({
@@ -113,24 +113,26 @@ const MySchema = z.object({
 });
 
 // Create DynamoDB client
-const client = DynamoDBDocumentClient.from(new DynamoDB({
-  region: REGION,
-  endpoint: ENDPOINT,
-}));
+const client = DynamoDBDocumentClient.from(
+  new DynamoDB({
+    region: REGION,
+    endpoint: ENDPOINT,
+  }),
+);
 
 // Create BetterDDB instance
 const myDdb = new BetterDDB({
   schema: MySchema,
   tableName: TEST_TABLE,
   keys: {
-    primary: { 
-      name: 'pk', 
-      definition: { build: (raw) => `ITEM#${raw.id}` } 
+    primary: {
+      name: "pk",
+      definition: { build: (raw) => `ITEM#${raw.id}` },
     },
-    sort: { 
-      name: 'sk', 
-      definition: { build: (raw) => `ITEM` } 
-    }
+    sort: {
+      name: "sk",
+      definition: { build: (raw) => `ITEM` },
+    },
   },
   client,
   timestamps: true,
@@ -146,11 +148,11 @@ afterAll(async () => {
 });
 
 // Test cases
-describe('My Feature', () => {
-  it('should do something specific', async () => {
+describe("My Feature", () => {
+  it("should do something specific", async () => {
     // Test implementation
-    const result = await myDdb.create({ id: '123', name: 'Test' }).execute();
-    expect(result.id).toBe('123');
+    const result = await myDdb.create({ id: "123", name: "Test" }).execute();
+    expect(result.id).toBe("123");
   });
 });
 ```
@@ -183,12 +185,12 @@ The `docker-compose.yml` file in the repository configures the LocalStack enviro
 
 ## Style Guide
 
-* We use ESLint and Prettier for code formatting
-* TypeScript is required for all new code
-* Follow the existing code style
-* Write descriptive commit messages
-* Add tests for new features
-* Update documentation for changes
+- We use ESLint and Prettier for code formatting
+- TypeScript is required for all new code
+- Follow the existing code style
+- Write descriptive commit messages
+- Add tests for new features
+- Update documentation for changes
 
 ## Project Structure
 
@@ -206,18 +208,18 @@ test/
 
 ## Documentation
 
-* Keep README.md updated
-* Document new features
-* Keep code comments clear and relevant
-* Update TypeScript types
-* Update API_REFERENCE.md with new functionality
+- Keep README.md updated
+- Document new features
+- Keep code comments clear and relevant
+- Update TypeScript types
+- Update API_REFERENCE.md with new functionality
 
 ## Community
 
-* Join our [Discussions](https://github.com/ryankrumholz/betterddb/discussions)
+- Join our [Discussions](https://github.com/ryanrawlingswang/betterddb/discussions)
 
 ## Questions?
 
 Feel free to open an issue or join our discussions if you have any questions.
 
-Thank you for contributing! 🎉 
+Thank you for contributing! 🎉

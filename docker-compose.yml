@@ -1,10 +1,10 @@
-version: '3.8'
+version: "3.8"
 services:
   betterddb-localstack:
     image: localstack/localstack:latest
     container_name: betterddb-localstack
     ports:
-      - "4566:4566"  # Main edge port
+      - "4566:4566" # Main edge port
       - "4571:4571"
     environment:
       - SERVICES=dynamodb

@@ -57,9 +57,9 @@ export interface BetterDDBOptions<T> {
 #### Example
 
 ```typescript
-import { BetterDDB } from 'betterddb';
-import { z } from 'zod';
-import { DynamoDBDocumentClient, DynamoDB } from '@aws-sdk/lib-dynamodb';
+import { BetterDDB } from "betterddb";
+import { z } from "zod";
+import { DynamoDBDocumentClient, DynamoDB } from "@aws-sdk/lib-dynamodb";
 
 // Define schema
 const UserSchema = z.object({
@@ -71,32 +71,34 @@ const UserSchema = z.object({
 });
 
 // Init client
-const client = DynamoDBDocumentClient.from(new DynamoDB({
-  region: 'us-east-1',
-}));
+const client = DynamoDBDocumentClient.from(
+  new DynamoDB({
+    region: "us-east-1",
+  }),
+);
 
 // Initialize BetterDDB
 const userDdb = new BetterDDB({
   schema: UserSchema,
-  tableName: 'Users',
+  tableName: "Users",
   keys: {
     primary: {
-      name: 'pk',
-      definition: { build: (raw) => `USER#${raw.id}` }
+      name: "pk",
+      definition: { build: (raw) => `USER#${raw.id}` },
     },
     sort: {
-      name: 'sk',
-      definition: { build: (raw) => `PROFILE` }
+      name: "sk",
+      definition: { build: (raw) => `PROFILE` },
     },
     gsis: {
       EmailIndex: {
-        name: 'EmailIndex',
-        primary: { 
-          name: 'gsi1pk', 
-          definition: 'email' 
-        }
-      }
-    }
+        name: "EmailIndex",
+        primary: {
+          name: "gsi1pk",
+          definition: "email",
+        },
+      },
+    },
   },
   client,
   timestamps: true,
@@ -125,10 +127,12 @@ type Entity = z.infer<typeof Schema>; // TypeScript type inference
 To allow for computed fields (like keys), use `.passthrough()`:
 
 ```typescript
-const Schema = z.object({
-  id: z.string(),
-  name: z.string(),
-}).passthrough();
+const Schema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+  })
+  .passthrough();
 ```
 
 ## CRUD Operations
@@ -150,20 +154,23 @@ create(item: T): CreateBuilder<T>
 
 ```typescript
 // Simple create
-const user = await userDdb.create({
-  id: '123',
-  name: 'Alice',
-  email: 'alice@example.com'
-}).execute();
+const user = await userDdb
+  .create({
+    id: "123",
+    name: "Alice",
+    email: "alice@example.com",
+  })
+  .execute();
 
 // Create with condition
-const user = await userDdb.create({
-  id: '123',
-  name: 'Alice',
-  email: 'alice@example.com'
-})
-.withCondition('attribute_not_exists(#pk)', { '#pk': 'pk' })
-.execute();
+const user = await userDdb
+  .create({
+    id: "123",
+    name: "Alice",
+    email: "alice@example.com",
+  })
+  .withCondition("attribute_not_exists(#pk)", { "#pk": "pk" })
+  .execute();
 ```
 
 ### Read
@@ -184,11 +191,12 @@ get(key: Partial<T>): GetBuilder<T>
 
 ```typescript
 // Simple get
-const user = await userDdb.get({ id: '123' }).execute();
+const user = await userDdb.get({ id: "123" }).execute();
 
 // Get with projection
-const userNameOnly = await userDdb.get({ id: '123' })
-  .withProjection(['name', 'email'])
+const userNameOnly = await userDdb
+  .get({ id: "123" })
+  .withProjection(["name", "email"])
   .execute();
 ```
 
@@ -203,10 +211,7 @@ batchGet(keys: Partial<T>[]): BatchGetBuilder<T>
 #### Example
 
 ```typescript
-const users = await userDdb.batchGet([
-  { id: '123' },
-  { id: '456' }
-]).execute();
+const users = await userDdb.batchGet([{ id: "123" }, { id: "456" }]).execute();
 ```
 
 ### Update
@@ -231,16 +236,18 @@ update(key: Partial<T>, expectedVersion?: number): UpdateBuilder<T>
 
 ```typescript
 // Simple update
-const user = await userDdb.update({ id: '123' })
-  .set({ name: 'Alice Smith' })
+const user = await userDdb
+  .update({ id: "123" })
+  .set({ name: "Alice Smith" })
   .execute();
 
 // Complex update
-const user = await userDdb.update({ id: '123' }, 1) // Version check
-  .set({ name: 'Alice Smith' })
-  .remove(['oldField'])
+const user = await userDdb
+  .update({ id: "123" }, 1) // Version check
+  .set({ name: "Alice Smith" })
+  .remove(["oldField"])
   .add({ age: 1 })
-  .withCondition('attribute_exists(#id)', { '#id': 'id' })
+  .withCondition("attribute_exists(#id)", { "#id": "id" })
   .execute();
 ```
 
@@ -262,13 +269,14 @@ delete(key: Partial<T>): DeleteBuilder<T>
 
 ```typescript
 // Simple delete
-await userDdb.delete({ id: '123' }).execute();
+await userDdb.delete({ id: "123" }).execute();
 
 // Delete with condition
-await userDdb.delete({ id: '123' })
-  .withCondition('#status = :status', { 
-    '#status': 'status', 
-    ':status': 'inactive' 
+await userDdb
+  .delete({ id: "123" })
+  .withCondition("#status = :status", {
+    "#status": "status",
+    ":status": "inactive",
   })
   .execute();
 ```
@@ -295,11 +303,12 @@ query(keyCondition: Partial<T>): QueryBuilder<T>
 
 ```typescript
 // Query by primary key
-const results = await userDdb.query({ id: '123' }).execute();
+const results = await userDdb.query({ id: "123" }).execute();
 
 // Query with sort key condition
-const results = await userDdb.query({ id: '123' })
-  .where('begins_with', { email: 'a' })
+const results = await userDdb
+  .query({ id: "123" })
+  .where("begins_with", { email: "a" })
   .execute();
 ```
 
@@ -307,8 +316,9 @@ const results = await userDdb.query({ id: '123' })
 
 ```typescript
 // Query using GSI
-const results = await userDdb.query({ email: 'alice@example.com' })
-  .usingIndex('EmailIndex')
+const results = await userDdb
+  .query({ email: "alice@example.com" })
+  .usingIndex("EmailIndex")
   .execute();
 ```
 
@@ -316,27 +326,28 @@ const results = await userDdb.query({ email: 'alice@example.com' })
 
 ```typescript
 // Query with filter
-const results = await userDdb.query({ id: '123' })
-  .filter('age', '>', 21)
+const results = await userDdb
+  .query({ id: "123" })
+  .filter("age", ">", 21)
   .limitResults(10)
   .execute();
 
 // Multiple filters
-const results = await userDdb.query({ id: '123' })
-  .filter('age', '>', 21)
-  .filter('name', 'begins_with', 'A')
+const results = await userDdb
+  .query({ id: "123" })
+  .filter("age", ">", 21)
+  .filter("name", "begins_with", "A")
   .execute();
 ```
 
 ### Pagination
 
 ```typescript
-const firstPage = await userDdb.query({ id: '123' })
-  .limitResults(10)
-  .execute();
+const firstPage = await userDdb.query({ id: "123" }).limitResults(10).execute();
 
 if (firstPage.lastEvaluatedKey) {
-  const secondPage = await userDdb.query({ id: '123' })
+  const secondPage = await userDdb
+    .query({ id: "123" })
     .limitResults(10)
     .startFrom(firstPage.lastEvaluatedKey)
     .execute();
@@ -366,8 +377,9 @@ scan(): ScanBuilder<T>
 const results = await userDdb.scan().execute();
 
 // Scan with filter
-const results = await userDdb.scan()
-  .filter('status', '==', 'active')
+const results = await userDdb
+  .scan()
+  .filter("status", "==", "active")
   .limitResults(100)
   .execute();
 ```
@@ -377,9 +389,9 @@ const results = await userDdb.scan()
 Performs multiple write operations in a single request.
 
 ```typescript
-batchWrite(operations: { 
-  puts?: T[]; 
-  deletes?: Partial<T>[] 
+batchWrite(operations: {
+  puts?: T[];
+  deletes?: Partial<T>[]
 }): Promise<void>
 ```
 
@@ -388,12 +400,10 @@ batchWrite(operations: {
 ```typescript
 await userDdb.batchWrite({
   puts: [
-    { id: '123', name: 'Alice', email: 'alice@example.com' },
-    { id: '456', name: 'Bob', email: 'bob@example.com' }
+    { id: "123", name: "Alice", email: "alice@example.com" },
+    { id: "456", name: "Bob", email: "bob@example.com" },
   ],
-  deletes: [
-    { id: '789' }
-  ]
+  deletes: [{ id: "789" }],
 });
 ```
 
@@ -409,25 +419,23 @@ transactWrite(transactItems: any[]): Promise<void>
 
 ```typescript
 // Build transaction items
-const createItem = userDdb.create({ 
-  id: '123', 
-  name: 'Alice', 
-  email: 'alice@example.com' 
-}).toTransactPut();
+const createItem = userDdb
+  .create({
+    id: "123",
+    name: "Alice",
+    email: "alice@example.com",
+  })
+  .toTransactPut();
 
-const updateItem = userDdb.update({ id: '456' })
-  .set({ name: 'Bob Smith' })
+const updateItem = userDdb
+  .update({ id: "456" })
+  .set({ name: "Bob Smith" })
   .toTransactUpdate();
 
-const deleteItem = userDdb.delete({ id: '789' })
-  .toTransactDelete();
+const deleteItem = userDdb.delete({ id: "789" }).toTransactDelete();
 
 // Execute transaction
-await userDdb.transactWrite([
-  createItem,
-  updateItem,
-  deleteItem
-]);
+await userDdb.transactWrite([createItem, updateItem, deleteItem]);
 ```
 
 ## Advanced Features
@@ -444,7 +452,7 @@ Enable with:
 ```typescript
 const ddb = new BetterDDB({
   // ...other options
-  timestamps: true
+  timestamps: true,
 });
 ```
 
@@ -454,8 +462,9 @@ Enables optimistic locking with version numbers.
 
 ```typescript
 // Update with version checking
-const user = await userDdb.update({ id: '123' }, 1) // Expected version
-  .set({ name: 'Alice Smith' })
+const user = await userDdb
+  .update({ id: "123" }, 1) // Expected version
+  .set({ name: "Alice Smith" })
   .execute();
 ```
 
@@ -468,7 +477,7 @@ Enables automatic counter incrementing for items.
 ```typescript
 const ddb = new BetterDDB({
   // ...other options
-  counter: true
+  counter: true,
 });
 ```
 
@@ -512,10 +521,10 @@ export type KeyDefinition<T> =
 const ddb = new BetterDDB<User>({
   keys: {
     primary: {
-      name: 'pk',
-      definition: 'id' // Use the raw 'id' attribute
-    }
-  }
+      name: "pk",
+      definition: "id", // Use the raw 'id' attribute
+    },
+  },
 });
 ```
 
@@ -525,11 +534,11 @@ const ddb = new BetterDDB<User>({
 const ddb = new BetterDDB<User>({
   keys: {
     primary: {
-      name: 'pk',
-      definition: { 
-        build: (raw) => `USER#${raw.id}` 
-      }
-    }
-  }
+      name: "pk",
+      definition: {
+        build: (raw) => `USER#${raw.id}`,
+      },
+    },
+  },
 });
-``` 
+```
