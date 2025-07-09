@@ -1,15 +1,15 @@
 import { type z } from "zod";
-import { QueryBuilder } from "./builders/query-builder.js";
-import { ScanBuilder } from "./builders/scan-builder.js";
-import { UpdateBuilder } from "./builders/update-builder.js";
-import { CreateBuilder } from "./builders/create-builder.js";
-import { GetBuilder } from "./builders/get-builder.js";
-import { DeleteBuilder } from "./builders/delete-builder.js";
+import { QueryBuilder } from "./builders/query-builder";
+import { ScanBuilder } from "./builders/scan-builder";
+import { UpdateBuilder } from "./builders/update-builder";
+import { CreateBuilder } from "./builders/create-builder";
+import { GetBuilder } from "./builders/get-builder";
+import { DeleteBuilder } from "./builders/delete-builder";
 import {
   type NativeAttributeValue,
   type DynamoDBDocumentClient,
 } from "@aws-sdk/lib-dynamodb";
-import { BatchGetBuilder } from "./builders/batch-get-builder.js";
+import { BatchGetBuilder } from "./builders/batch-get-builder";
 export type PrimaryKeyValue = string | number;
 
 /**

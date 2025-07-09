@@ -1,16 +1,17 @@
+/** @type {import('jest').Config} */
 const config = {
   testEnvironment: "node",
   roots: ["<rootDir>/test/"],
   testMatch: ["**/*.test.ts"],
   transform: {
-    "^.+\\.(ts|tsx|js|jsx)$": "ts-jest",
+    "^.+\\.(ts|tsx|js|jsx)$": "babel-jest"
   },
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
     "^~/(.*)$": "<rootDir>/src/$1",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
   },
-  extensionsToTreatAsEsm: [".ts", ".tsx"],
-  moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
+  moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"]
 };
 
-export default config;
+module.exports = config; 

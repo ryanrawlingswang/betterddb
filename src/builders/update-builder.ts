@@ -2,13 +2,15 @@ import {
   type NativeAttributeValue,
   TransactWriteCommand,
   UpdateCommand,
+  type UpdateCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 import { type BetterDDB } from "../betterddb.js";
 import {
   type TransactWriteItem,
   type Update,
-  type UpdateItemInput,
+  type ReturnValue,
 } from "@aws-sdk/client-dynamodb";
+
 interface UpdateActions<T> {
   set?: Partial<T>;
   remove?: (keyof T)[];
@@ -39,7 +41,9 @@ export class UpdateBuilder<T> {
       (acc, [key, value]) => {
         if (
           value === undefined ||
-          (typeof value === "string" && value.trim() === "")
+          (typeof value === "string" &&
+            value.trim() === "" &&
+            this.parent.getSchema().shape[key]?.isOptional?.())
         ) {
           acc.toRemove.push(key as keyof T);
         } else {
@@ -125,34 +129,44 @@ export class UpdateBuilder<T> {
   /**
    * Builds the update expression and associated maps.
    */
-  private buildExpression(): {
+  private buildExpression(newItemForIndexes?: T): {
     updateExpression: string;
     attributeNames: Record<string, string>;
     attributeValues?: Record<string, NativeAttributeValue>;
   } {
     const ExpressionAttributeNames: Record<string, string> = {};
-    let ExpressionAttributeValues:
-      | Record<string, NativeAttributeValue>
-      | undefined = {};
+    const ExpressionAttributeValues: Record<string, NativeAttributeValue> = {};
     const clauses: string[] = [];
 
-    // Build SET clause.
+    // 1) SET – from actions.set
+    const setParts: string[] = [];
     if (this.actions.set) {
-      const setParts: string[] = [];
       for (const [attr, value] of Object.entries(this.actions.set)) {
         const nameKey = `#n_${attr}`;
         const valueKey = `:v_${attr}`;
         ExpressionAttributeNames[nameKey] = attr;
-        ExpressionAttributeValues[valueKey] = value;
+        ExpressionAttributeValues[valueKey] = value!;
         setParts.push(`${nameKey} = ${valueKey}`);
-      }
-      if (setParts.length > 0) {
-        clauses.push(`SET ${setParts.join(", ")}`);
       }
     }
 
-    // Build REMOVE clause.
-    if (this.actions.remove && this.actions.remove.length > 0) {
+    // 2) also SET – from index‐rebuild if requested
+    if (newItemForIndexes) {
+      const indexAttrs = this.parent.buildIndexes(newItemForIndexes);
+      for (const [attr, value] of Object.entries(indexAttrs)) {
+        const nameKey = `#n_idx_${attr}`;
+        const valueKey = `:v_idx_${attr}`;
+        ExpressionAttributeNames[nameKey] = attr;
+        ExpressionAttributeValues[valueKey] = value;
+        setParts.push(`${nameKey} = ${valueKey}`);
+      }
+    }
+    if (setParts.length > 0) {
+      clauses.push(`SET ${setParts.join(", ")}`);
+    }
+
+    // 3) REMOVE
+    if (this.actions.remove?.length) {
       const removeParts = this.actions.remove.map((attr) => {
         const nameKey = `#n_${String(attr)}`;
         ExpressionAttributeNames[nameKey] = String(attr);
@@ -161,66 +175,70 @@ export class UpdateBuilder<T> {
       clauses.push(`REMOVE ${removeParts.join(", ")}`);
     }
 
-    // Build ADD clause.
+    // 4) ADD
     if (this.actions.add) {
       const addParts: string[] = [];
       for (const [attr, value] of Object.entries(this.actions.add)) {
         const nameKey = `#n_${attr}`;
         const valueKey = `:v_${attr}`;
         ExpressionAttributeNames[nameKey] = attr;
-        ExpressionAttributeValues[valueKey] = value;
+        ExpressionAttributeValues[valueKey] = value as NativeAttributeValue;
         addParts.push(`${nameKey} ${valueKey}`);
       }
-      if (addParts.length > 0) {
+      if (addParts.length) {
         clauses.push(`ADD ${addParts.join(", ")}`);
       }
     }
 
-    // Build DELETE clause.
+    // 5) DELETE
     if (this.actions.delete) {
       const deleteParts: string[] = [];
       for (const [attr, value] of Object.entries(this.actions.delete)) {
         const nameKey = `#n_${attr}`;
         const valueKey = `:v_${attr}`;
         ExpressionAttributeNames[nameKey] = attr;
-        ExpressionAttributeValues[valueKey] = value;
+        ExpressionAttributeValues[valueKey] = value as NativeAttributeValue;
         deleteParts.push(`${nameKey} ${valueKey}`);
       }
-      if (deleteParts.length > 0) {
+      if (deleteParts.length) {
         clauses.push(`DELETE ${deleteParts.join(", ")}`);
       }
     }
 
-    // Merge any provided condition attribute names and values
+    // 6) merge in condition‐names/values
     if (this.condition) {
       Object.assign(ExpressionAttributeNames, this.condition.attributeNames);
       Object.assign(ExpressionAttributeValues, this.condition.attributeValues);
     }
 
-    if (Object.keys(ExpressionAttributeValues).length === 0) {
-      ExpressionAttributeValues = undefined;
-    }
+    // 7) normalize empty values
+    const hasValues = Object.keys(ExpressionAttributeValues).length > 0;
+    const finalValues = hasValues ? ExpressionAttributeValues : undefined;
 
-    // If no clauses were generated, throw an error
     if (clauses.length === 0) {
       throw new Error(
-        "No attributes to update - all values were empty or undefined",
+        "No attributes to update – all values were empty or undefined",
       );
     }
 
     return {
       updateExpression: clauses.join(" "),
       attributeNames: ExpressionAttributeNames,
-      attributeValues: ExpressionAttributeValues,
+      attributeValues: finalValues,
     };
   }
 
   /**
    * Returns a transaction update item that can be included in a transactWrite call.
    */
-  public toTransactUpdate(): TransactWriteItem {
+  public async toTransactUpdate(
+    newItemForIndexes?: T,
+  ): Promise<TransactWriteItem> {
+    if (newItemForIndexes) {
+      newItemForIndexes = await this.createExpectedNewItem();
+    }
     const { updateExpression, attributeNames, attributeValues } =
-      this.buildExpression();
+      this.buildExpression(newItemForIndexes);
     const updateItem: Update = {
       TableName: this.parent.getTableName(),
       Key: this.parent.buildKey(this.key),
@@ -234,47 +252,48 @@ export class UpdateBuilder<T> {
     return { Update: updateItem };
   }
 
-  private async rebuildIndexes() {
+  private async createExpectedNewItem() {
     const existingItem = await this.parent.get(this.key).execute();
     if (existingItem === null) {
       throw new Error("Item not found");
     }
-    const indexAttributes = this.parent.buildIndexes(existingItem);
-    if (Object.keys(indexAttributes).length > 0) {
-      const updateExpression = `SET ${Object.entries(indexAttributes)
-        .map(([attr]) => `#n_${attr} = :v_${attr}`)
-        .join(", ")}`;
-      const attributeNames = Object.fromEntries(
-        Object.entries(indexAttributes).map(([attr]) => [`#n_${attr}`, attr]),
-      );
-      const attributeValues = Object.fromEntries(
-        Object.entries(indexAttributes).map(([attr, value]) => [
-          `:v_${attr}`,
-          value,
-        ]),
-      );
-
-      const params: UpdateItemInput = {
-        TableName: this.parent.getTableName(),
-        Key: this.parent.buildKey(this.key),
-        UpdateExpression: updateExpression,
-        ExpressionAttributeNames: attributeNames,
-        ExpressionAttributeValues: attributeValues,
-        ReturnValues: "ALL_NEW",
-      };
-
-      const result = await this.parent
-        .getClient()
-        .send(new UpdateCommand(params));
-      return result.Attributes;
+    const expectedNewItem: Record<string, any> = {
+      ...existingItem,
+      ...this.actions.set,
+    };
+    if (this.actions.remove) {
+      this.actions.remove.forEach((attr) => {
+        delete expectedNewItem[String(attr)];
+      });
     }
-    return existingItem;
+    if (this.actions.add) {
+      Object.entries(this.actions.add).forEach(([attr, value]) => {
+        const currentValue = expectedNewItem[attr] ?? 0;
+        expectedNewItem[attr] =
+          typeof value === "number" ? currentValue + value : value;
+      });
+    }
+    if (this.actions.delete) {
+      Object.entries(this.actions.delete).forEach(([attr, value]) => {
+        if (value instanceof Set) {
+          const currentSet = expectedNewItem[attr];
+          if (currentSet instanceof Set) {
+            value.forEach((v) => {
+              currentSet.delete(v);
+            });
+          }
+        }
+      });
+    }
+    return this.parent.getSchema().parse(expectedNewItem) as T;
   }
 
   /**
    * Commits the update immediately by calling the parent's update method.
    */
   public async execute(): Promise<T> {
+    const expectedNewItem = await this.createExpectedNewItem();
+
     if (this.parent.getTimestamps()) {
       const now = new Date().toISOString();
       if (!this.actions.set) {
@@ -285,7 +304,7 @@ export class UpdateBuilder<T> {
     if (this.extraTransactItems.length > 0) {
       // For transactions, we must throw if there's nothing to update
       // since we can't safely skip updates in a transaction
-      const myTransactItem = this.toTransactUpdate();
+      const myTransactItem = await this.toTransactUpdate(expectedNewItem);
       const allItems = [...this.extraTransactItems, myTransactItem];
       await this.parent.getClient().send(
         new TransactWriteCommand({
@@ -297,22 +316,24 @@ export class UpdateBuilder<T> {
       if (result === null) {
         throw new Error("Item not found after transaction update");
       }
-      const rebuiltItem = await this.rebuildIndexes();
-      return this.parent.getSchema().parse(rebuiltItem) as T;
+
+      return result;
     }
 
     // For normal updates, handle empty updates gracefully
     try {
       const { updateExpression, attributeNames, attributeValues } =
-        this.buildExpression();
-      const params: UpdateItemInput = {
+        this.buildExpression(expectedNewItem);
+
+      let params: UpdateCommandInput = {
         TableName: this.parent.getTableName(),
         Key: this.parent.buildKey(this.key),
         UpdateExpression: updateExpression,
         ExpressionAttributeNames: attributeNames,
         ExpressionAttributeValues: attributeValues,
-        ReturnValues: "ALL_NEW",
+        ReturnValues: "ALL_NEW" as ReturnValue,
       };
+
       if (this.condition?.expression) {
         params.ConditionExpression = this.condition.expression;
       }
@@ -322,9 +343,7 @@ export class UpdateBuilder<T> {
       if (!result.Attributes) {
         throw new Error("No attributes returned after update");
       }
-
-      const rebuiltItem = await this.rebuildIndexes();
-      return this.parent.getSchema().parse(rebuiltItem) as T;
+      return this.parent.getSchema().parse(result.Attributes) as T;
     } catch (error) {
       // If there's nothing to update, just return the existing item
       if (

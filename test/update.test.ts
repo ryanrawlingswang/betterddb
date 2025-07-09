@@ -55,6 +55,7 @@ const UserSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().email(),
+  nickname: z.string().optional(),
   points: z.number().optional(),
   tags: z.set(z.string()).optional(),
 });
@@ -229,7 +230,7 @@ describe("BetterDDB - Update Operation", () => {
     await userDdb.create(newUser).execute();
 
     // Create a second update builder for the transaction
-    const secondUpdate = userDdb
+    const secondUpdate = await userDdb
       .update({ id: "user-456", email: "alice@example.com" })
       .set({ name: "Alice Updated" })
       .toTransactUpdate();
@@ -318,7 +319,7 @@ describe("BetterDDB - Update Operation", () => {
     // First set initial values
     await userDdb
       .update({ id: "user-123", email: "john@example.com" })
-      .set({ name: "John Doe", points: 10 })
+      .set({ name: "John Doe", points: 10, nickname: "John" })
       .execute();
 
     // Update with a mix of values - some to set, some to remove
@@ -327,13 +328,15 @@ describe("BetterDDB - Update Operation", () => {
       .set({
         name: "", // Should trigger remove
         points: undefined, // Should trigger remove
+        nickname: "", // Should trigger remove
         email: "john@example.com", // Should remain (required field)
       })
       .execute();
 
     // Fields should be removed, not null or undefined
-    expect(updatedUser.name).toBeUndefined(); // Removed due to empty string
+    expect(updatedUser.name).toBe(""); // Removed due to empty string
     expect(updatedUser.points).toBeUndefined(); // Removed due to undefined
+    expect(updatedUser.nickname).toBeUndefined(); // Removed due to empty string
     expect(updatedUser.email).toBe("john@example.com"); // Required field remains
 
     // Now let's verify we can still set values normally
