@@ -234,7 +234,7 @@ export class UpdateBuilder<T> {
   public async toTransactUpdate(
     newItemForIndexes?: T,
   ): Promise<TransactWriteItem> {
-    if (newItemForIndexes) {
+    if (!newItemForIndexes) {
       newItemForIndexes = await this.createExpectedNewItem();
     }
     const { updateExpression, attributeNames, attributeValues } =
@@ -269,8 +269,15 @@ export class UpdateBuilder<T> {
     if (this.actions.add) {
       Object.entries(this.actions.add).forEach(([attr, value]) => {
         const currentValue = expectedNewItem[attr] ?? 0;
-        expectedNewItem[attr] =
-          typeof value === "number" ? currentValue + value : value;
+        if (typeof value === "number") {
+          expectedNewItem[attr] = currentValue + value;
+        } else if (value instanceof Set) {
+          const currentSet =
+            expectedNewItem[attr] instanceof Set
+              ? expectedNewItem[attr]
+              : new Set();
+          expectedNewItem[attr] = new Set([...currentSet, ...value]);
+        }
       });
     }
     if (this.actions.delete) {
