@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { type BetterDDB } from "../betterddb.js";
 import { TransactGetCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
 import {

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { type BetterDDB } from "../betterddb.js";
 import {
   type TransactWriteItem,
