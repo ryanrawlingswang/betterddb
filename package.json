@@ -4,7 +4,15 @@
   "description": "A definition-based DynamoDB wrapper library that provides a schema-driven and fully typesafe DAL.",
   "type": "module",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
     "README.md",
@@ -61,5 +69,8 @@
     "prettier": "^3.3.3",
     "ts-jest": "^29.2.5",
     "typescript": "latest"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.7.0"
   }
 }
