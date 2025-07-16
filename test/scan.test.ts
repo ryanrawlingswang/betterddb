@@ -7,6 +7,7 @@ import {
   KeySchemaElement,
   AttributeDefinition,
 } from "@aws-sdk/client-dynamodb";
+import { Operator } from "../src/operator.js";
 const TEST_TABLE = "scan-test-table";
 const ENDPOINT = "http://localhost:4566";
 const REGION = "us-east-1";
@@ -92,7 +93,7 @@ describe("BetterDDB - Scan Operation", () => {
   it("should scan items using ScanBuilder", async () => {
     const results = await userDdb
       .scan()
-      .where("email", "begins_with", "a")
+      .where("email", Operator.BEGINS_WITH, "a")
       .limitResults(10)
       .execute();
     expect(results.items.length).toBeGreaterThanOrEqual(1);
@@ -105,7 +106,7 @@ describe("BetterDDB - Scan Operation", () => {
     // Scan for users whose name contains "Alice"
     const results = await userDdb
       .scan()
-      .where("name", "contains", "Alice")
+        .where("name", Operator.CONTAINS, "Alice")
       .limitResults(10)
       .execute();
     expect(results.items.length).toBeGreaterThan(0);
@@ -119,7 +120,7 @@ describe("BetterDDB - Scan Operation", () => {
     // 'alice@example.com' should be between "a" and "c".
     const results = await userDdb
       .scan()
-      .where("email", "between", ["a", "c"])
+      .where("email", Operator.BETWEEN, ["a", "c"])
       .execute();
     expect(results.items.length).toBeGreaterThan(0);
     results.items.forEach((result) => {

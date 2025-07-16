@@ -5,7 +5,7 @@ import {
   type NativeAttributeValue,
 } from "@aws-sdk/lib-dynamodb";
 import { type BetterDDB } from "../betterddb.js";
-import { getOperatorExpression, type Operator } from "../operator.js";
+import { getOperatorExpression, Operator } from "../operator.js";
 import { type PaginatedResult } from "../types/paginated-result.js";
 
 export class ScanBuilder<T> {
@@ -21,7 +21,7 @@ export class ScanBuilder<T> {
     const attrStr = String(attribute);
     const nameKey = `#attr_${attrStr}`;
     this.expressionAttributeNames[nameKey] = attrStr;
-    if (operator === "between") {
+    if (operator === Operator.BETWEEN) {
       if (!Array.isArray(values) || values.length !== 2) {
         throw new Error(
           `For 'between' operator, values must be a tuple of two items`,
@@ -40,7 +40,10 @@ export class ScanBuilder<T> {
       this.filters.push(
         `${nameKey} BETWEEN ${valueKeyStart} AND ${valueKeyEnd}`,
       );
-    } else if (operator === "begins_with" || operator === "contains") {
+    } else if (
+      operator === Operator.BEGINS_WITH ||
+      operator === Operator.CONTAINS
+    ) {
       const valueKey = `:val_${attrStr}`;
       this.expressionAttributeValues[valueKey] = values as Record<
         string,

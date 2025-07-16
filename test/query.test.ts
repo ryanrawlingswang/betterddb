@@ -8,7 +8,7 @@ import {
   KeySchemaElement,
 } from "@aws-sdk/client-dynamodb";
 import { createTestTable, deleteTestTable } from "./utils/table-setup";
-
+import { Operator } from "../src/operator.js";
 const TEST_TABLE = "query-test-table";
 const ENDPOINT = "http://localhost:4566";
 const REGION = "us-east-1";
@@ -106,7 +106,7 @@ describe("BetterDDB - Query Operation", () => {
   it("should query items using QueryBuilder with filter condition", async () => {
     const results = await userDdb
       .query({ id: "user-1" })
-      .filter("name", "begins_with", "Alice")
+      .filter("name", Operator.BEGINS_WITH, "Alice")
       .limitResults(5)
       .execute();
     expect(results.items.length).toBeGreaterThanOrEqual(1);
@@ -131,7 +131,7 @@ describe("BetterDDB - Query Operation", () => {
     // For a complex sort key, users must supply an object.
     const results = await userDdb
       .query({ id: "user-1" })
-      .where("begins_with", { email: "alice" })
+      .where(Operator.BEGINS_WITH, { email: "alice" })
       .execute();
     expect(results.items.length).toBeGreaterThanOrEqual(1);
     results.items.forEach((result) => {
@@ -142,7 +142,7 @@ describe("BetterDDB - Query Operation", () => {
   it("should return no results if the sort key condition does not match", async () => {
     const results = await userDdb
       .query({ id: "user-1" })
-      .where("begins_with", { email: "bob" })
+      .where(Operator.BEGINS_WITH, { email: "bob" })
       .execute();
     expect(results.items.length).toEqual(0);
   });
@@ -151,7 +151,7 @@ describe("BetterDDB - Query Operation", () => {
     const results = await userDdb
       .query({ email: "alice@example.com" })
       .usingIndex("EmailIndex")
-      .filter("name", "begins_with", "Alice")
+      .filter("name", Operator.BEGINS_WITH, "Alice")
       .execute();
     expect(results.items.length).toBeGreaterThanOrEqual(1);
     results.items.forEach((result) => {
@@ -165,7 +165,7 @@ describe("BetterDDB - Query Operation", () => {
     // We provide lower and upper bounds as objects.
     const results = await userDdb
       .query({ id: "user-1" })
-      .where("between", [
+      .where(Operator.BETWEEN, [
         { email: "alice" }, // Lower bound -> built to "USER#alice"
         { email: "alice@example.com" }, // Upper bound -> built to "USER#alice@example.com"
       ])
@@ -183,8 +183,8 @@ describe("BetterDDB - Query Operation", () => {
     const results = await userDdb
       .query({ email: "alice@example.com" })
       .usingIndex("EmailIndex")
-      .filter("name", "begins_with", "Alice")
-      .filter("name", "contains", "B")
+      .filter("name", Operator.BEGINS_WITH, "Alice")
+      .filter("name", Operator.CONTAINS, "B")
       .execute();
     expect(results.items.length).toEqual(1);
     results.items.forEach((result) => {
@@ -199,7 +199,7 @@ describe("BetterDDB - Query Operation", () => {
     const results = await userDdb
       .query({ email: "alice@example.com" })
       .usingIndex("EmailIndex")
-      .where("begins_with", { email: "alice" })
+      .where(Operator.BEGINS_WITH, { email: "alice" })
       .execute();
     expect(results.items.length).toEqual(2);
   });

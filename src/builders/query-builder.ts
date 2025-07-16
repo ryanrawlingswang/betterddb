@@ -5,7 +5,7 @@ import {
   type QueryCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 import { type BetterDDB, type GSIConfig } from "../betterddb.js";
-import { getOperatorExpression, type Operator } from "../operator.js";
+import { getOperatorExpression, Operator } from "../operator.js";
 import { type PaginatedResult } from "../types/paginated-result.js";
 
 export class QueryBuilder<T> {
@@ -89,7 +89,7 @@ export class QueryBuilder<T> {
       );
     }
 
-    if (operator === "between") {
+    if (operator === Operator.BETWEEN) {
       if (!Array.isArray(values) || values.length !== 2) {
         throw new Error(
           `For 'between' operator, values must be a tuple of two objects`,
@@ -119,7 +119,7 @@ export class QueryBuilder<T> {
       this.keyConditions.push(
         `${nameKey} BETWEEN ${valueKeyStart} AND ${valueKeyEnd}`,
       );
-    } else if (operator === "begins_with") {
+    } else if (operator === Operator.BEGINS_WITH) {
       const valueKey = ":sk_value";
       this.expressionAttributeValues[valueKey] = this.index
         ? (this.parent.buildIndexes(values as Partial<T>)[
@@ -152,7 +152,7 @@ export class QueryBuilder<T> {
     const randomString = Math.random().toString(36).substring(2, 15);
     const placeholderName = `#attr_${attrStr}_${randomString}`;
     this.expressionAttributeNames[placeholderName] = attrStr;
-    if (operator === "between") {
+    if (operator === Operator.BETWEEN) {
       if (!Array.isArray(values) || values.length !== 2) {
         throw new Error(
           "For 'between' operator, values must be a tuple of two items",
@@ -169,7 +169,10 @@ export class QueryBuilder<T> {
       this.filterConditions.push(
         `${placeholderName} BETWEEN ${placeholderValueStart} AND ${placeholderValueEnd}`,
       );
-    } else if (operator === "begins_with" || operator === "contains") {
+    } else if (
+      operator === Operator.BEGINS_WITH ||
+      operator === Operator.CONTAINS
+    ) {
       const placeholderValue = `:val_${attrStr}_${randomString}`;
       this.expressionAttributeValues[placeholderValue] = values as Record<
         string,

@@ -1,13 +1,14 @@
-export type Operator =
-  | "=="
-  | "!="
-  | "<"
-  | "<="
-  | ">"
-  | ">="
-  | "begins_with"
-  | "between"
-  | "contains";
+export enum Operator {
+  EQ = "==",
+  NE = "!=",
+  LT = "<",
+  LTE = "<=",
+  GT = ">",
+  GTE = ">=",
+  BEGINS_WITH = "begins_with",
+  BETWEEN = "between",
+  CONTAINS = "contains",
+}
 
 export function getOperatorExpression(
   operator: Operator,
@@ -16,26 +17,26 @@ export function getOperatorExpression(
   secondValueKey?: string,
 ): string {
   switch (operator) {
-    case "==":
+    case Operator.EQ:
       return `${nameKey} = ${valueKey}`;
-    case "!=":
+    case Operator.NE:
       return `${nameKey} <> ${valueKey}`;
-    case "<":
+    case Operator.LT:
       return `${nameKey} < ${valueKey}`;
-    case "<=":
+    case Operator.LTE:
       return `${nameKey} <= ${valueKey}`;
-    case ">":
+    case Operator.GT:
       return `${nameKey} > ${valueKey}`;
-    case ">=":
+    case Operator.GTE:
       return `${nameKey} >= ${valueKey}`;
-    case "begins_with":
+    case Operator.BEGINS_WITH:
       return `begins_with(${nameKey}, ${valueKey})`;
-    case "between":
+    case Operator.BETWEEN:
       if (!secondValueKey) {
         throw new Error("The 'between' operator requires two value keys");
       }
       return `${nameKey} BETWEEN ${valueKey} AND ${secondValueKey}`;
-    case "contains":
+    case Operator.CONTAINS:
       return `contains(${nameKey}, ${valueKey})`;
     default:
       throw new Error("Unsupported operator");
