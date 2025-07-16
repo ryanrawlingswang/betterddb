@@ -5,7 +5,7 @@ import {
   type NativeAttributeValue,
 } from "@aws-sdk/lib-dynamodb";
 import { type BetterDDB } from "../betterddb.js";
-import { getOperatorExpression, Operator } from "../operator.js";
+import { getOperatorExpression, Operator } from "../types/operator.js";
 import { type PaginatedResult } from "../types/paginated-result.js";
 
 export class ScanBuilder<T> {

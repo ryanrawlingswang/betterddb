@@ -5,7 +5,7 @@ import {
   type QueryCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 import { type BetterDDB, type GSIConfig } from "../betterddb.js";
-import { getOperatorExpression, Operator } from "../operator.js";
+import { getOperatorExpression, Operator } from "../types/operator.js";
 import { type PaginatedResult } from "../types/paginated-result.js";
 
 export class QueryBuilder<T> {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BetterDDB } from "../src/betterddb";
+import { BetterDDB } from "../src/betterddb.js";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { DynamoDB, GlobalSecondaryIndex } from "@aws-sdk/client-dynamodb";
 import { createTestTable, deleteTestTable } from "./utils/table-setup";
@@ -7,7 +7,7 @@ import {
   KeySchemaElement,
   AttributeDefinition,
 } from "@aws-sdk/client-dynamodb";
-import { Operator } from "../src/operator.js";
+import { Operator } from "../src/types/operator.js";
 const TEST_TABLE = "scan-test-table";
 const ENDPOINT = "http://localhost:4566";
 const REGION = "us-east-1";
